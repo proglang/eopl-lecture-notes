@@ -1,8 +1,9 @@
 ```
 module Lecture1 where
+import Data.Vec using (lookup)
 import Relation.Binary.PropositionalEquality as Eq
 open Eq using (_≡_; refl; trans; sym; cong; cong₂; cong-app; subst)
-
+open Eq.≡-Reasoning using (begin_; step-≡-∣; step-≡-⟩; _∎)
 ```
 
 # Essentials of Programming Languages SS 2025
@@ -105,14 +106,19 @@ To do so ʻ we write the property as the *type* of a function:
 
 +-identityʳ : ∀ (n : ℕ) → n + zero ≡ n
 +-identityʳ zero = refl
-+-identityʳ (suc n) rewrite +-identityʳ n = refl
++-identityʳ (suc n) = cong suc (+-identityʳ n)
 
 +-assoc : ∀ m n o → m + (n + o) ≡ (m + n) + o
 +-assoc zero n o = refl
 +-assoc (suc m) n o rewrite +-assoc m n o = refl
+
++-suc : ∀ m n → m + (suc n) ≡ (suc m) + n  {- ≡ suc (m + n)   definitionally -}
++-suc zero n = refl
++-suc (suc m) n = cong suc (+-suc m n)
 ```
 
 ### Agda for safe programming
+
 
 Recurring problem: buffer overflows causing security breaches
 
@@ -122,6 +128,33 @@ In Agda, we can define a vector datatype, where the type contains the number of 
 data Vec : ℕ → Set where
   [] : Vec zero
   _∷_ : ∀ {n} → ℕ → Vec n → Vec (suc n)
+
+-- concatenation
+
+-- using implicit arguments
+
+_++_ : ∀ {m} {n} → Vec m → Vec n → Vec (m + n)
+[] ++ ys = ys
+(x ∷ xs) ++ ys = x ∷ (xs ++ ys)
+
+-- equality proof using *equational reasoning* 
+
+sym' : {A : Set}{x y : A} → x ≡ y → y ≡ x
+sym' refl = refl
+
+lemma : ∀ {n} → suc n ≡ n + suc zero
+lemma {n} =
+  begin
+    suc n
+  ≡⟨ sym (+-identityʳ (suc n)) ⟩
+    (suc n + zero)
+  ≡⟨ sym (+-suc n zero) ⟩
+    n + suc zero
+  ∎
+
+reverse : ∀ {m} → Vec m → Vec m
+reverse [] = []
+reverse {suc m} (x ∷ vs) rewrite lemma{m} = reverse vs ++ (x ∷ [])
 ```
 
 That is `v : Vec n` contains exactly `n` elements.
@@ -137,6 +170,23 @@ only typechecks if `i` is provably less than `n`. To do so, we can either
 proceed as outlined with `index` or we can define a special datatype of
 admissible indices for `v`:
 
+```
+data Fin : ℕ → Set where
+
+  zero : ∀ {n : ℕ} → Fin (suc n)
+  suc  : ∀ {n : ℕ} → Fin n → Fin (suc n)
+```
+
+Elements of `Fin n` are the natural number less than `n`.
+For example, `Fin zero` is the empty set.
+`Fin (suc zero)` contains only `zero`.
+
+```
+lookup : ∀ {n} → Vec n → Fin n → ℕ
+lookup [] ()
+lookup (x ∷ _) zero = x
+lookup (_ ∷ vs) (suc i) = lookup vs i
+```
 
 
 
