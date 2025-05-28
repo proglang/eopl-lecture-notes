@@ -2,7 +2,7 @@
 
 ```
 module Lecture6 where
-open import Relation.Binary.PropositionalEquality using (_≡_; refl)
+open import Relation.Binary.PropositionalEquality using (_≡_; refl; cong)
 open import Data.Empty using (⊥)
 open import Data.Nat using (ℕ; zero; suc; _<_; _≤_; s≤s; z≤n)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
@@ -136,7 +136,9 @@ trichotomy zero (suc n) = m<n (s≤s z≤n) z≠suc λ{ () }
 trichotomy (suc m) zero = m>n (λ()) (λ{ ()}) (s≤s z≤n)
 trichotomy (suc m) (suc n)
   with trichotomy m n
-... | tri = {!tri!}
+... | m<n x y z = m<n (s≤s x)               (λ {refl → y refl}) λ { (s≤s x₁) → z x₁}
+... | m≡n x y z = m≡n (λ{ (s≤s x₁) → x x₁}) (cong suc y)        λ{ (s≤s x₁) → z x₁}
+... | m>n x y z = m>n (λ{ (s≤s x₁) → x x₁}) (λ{ refl → y refl}) (s≤s z)
 ```
 
 ## Classical vs. intuitionistic logic
