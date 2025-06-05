@@ -9,7 +9,7 @@ open import Data.Nat using (ℕ; zero; suc)
 open import Data.Sum using (_⊎_; inj₁; inj₂)
 open import Data.Product using (_×_; proj₁; proj₂; _,_)
 open import Relation.Nullary using (¬_)
-open import Function using (case_of_; _∘_)
+open import Function using (_∘_)
 
 
 variable A : Set
@@ -105,13 +105,37 @@ m ≤?′ n
   with m ≤ᵇ n | ≤ᵇ⇒≤ m n | ≤⇒≤ᵇ {m}{n}
 ... | true    | x       | y = yes (x tt)
 ... | false   | x       | y = no y
+```
+
+The problem of the `with` abstraction is that it forgets the connection
+between the abstracted expression and the result obtained by pattern
+matching. The above pattern is one way to amend this situation.
+
+Alternatively, the `with` abstraction has a facility to reify the connection
+as an equality. The implementation of `_≤?″_` gives an example.
+
+```
+case_of_ : ∀ {A B : Set} → A → (A → B) → B
+case a of f = f a
 
 _≤?″_ : (m n : ℕ) → Dec (m ≤ n)
 m ≤?″ n
   with m ≤ᵇ n in eq
-... | true = yes (≤ᵇ⇒≤ m n (≡⇒T eq))
+... | true  = yes (≤ᵇ⇒≤ m n (≡⇒T eq))
 ... | false = no (λ m≤n → case (trans (sym eq) (T⇒≡ (m ≤ᵇ n) (≤⇒≤ᵇ m≤n))) of λ())
 ```
+
+The `with e in v ...` works as follows. The expression `e` is matched against the
+subsequent patterns and the variable `v` scopes over the right-hand sides of these
+patterns. In the right-hand side expression for pattern `p`, the variable `v` has
+type `e ≡ p`.
+
+In the `true` branch of the above example, we have `eq : m ≤ᵇ n ≡ true`.
+In the `false` branch, we have `eq : m ≤ᵇ n ≡ false`.
+In the same branch, we first derive `m ≤ᵇ n ≡ true` from `m≤n : m ≤ n`.
+Using transitivity of `_≡_` we obtain `true ≡ false`, a contradiction.
+We expose this contradiction with the `case_of_` function (also in the standard library
+module `Function`), which allows us to pattern match against `true ≡ false` in an expression.
 
 ```
 ¬zero≡suc : ∀ {m} → ¬ zero ≡ suc m
@@ -176,27 +200,29 @@ minus″ (suc m) (suc n) { tnm} = minus″ m n {tnm}
 _ : minus″ 3 1 ≡ 2
 _ = refl
 ```
-The following type cannot be completed because the type of the first hole is `⊥`.
+The following typing cannot be completed because the type of the first hole is `⊥`.
 ```
-_ : minus″ 1 3 {{!!}} ≡ 42
-_ = {!!}
+-- _ : minus″ 1 3 {{!!}} ≡ 42
+-- _ = {!!}
 ```
 
 Completing the following definitions requires similar contortions as in the definition
 of `_≤?″_`.
 ```
+≤⇒≤? : ∀{n}{m} → n ≤ m → T ⌊ n ≤? m ⌋
+≤⇒≤? z≤n = tt
+≤⇒≤? {suc n}{suc m} (s≤s n≤m)
+  with n ≤? m
+... | yes _   = tt
+... | no ¬n≤m = ¬n≤m n≤m
+
 minus′ : (m n : ℕ) → T ⌊ n ≤? m ⌋ → ℕ
 minus′ zero zero tnm = zero
 minus′ (suc m) zero tnm = suc m
 minus′ (suc m) (suc n) tnm
   with n ≤? m
-... | yes n≤m = {!minus′ m n !}
-... | no ¬n≤m = {!!}
-
-minus‴ : (m n : ℕ) → T ⌊ n ≤?′ m ⌋ → ℕ
-minus‴ zero zero tnm = zero
-minus‴ (suc m) zero tnm = suc m
-minus‴ (suc m) (suc n) tnm = minus‴ m n {!tnm!}
+... | yes n≤m = minus′ m n (≤⇒≤? n≤m)
+minus′ (suc m) (suc n) () | no ¬n≤m
 ```
 
 
