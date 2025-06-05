@@ -294,3 +294,13 @@ postulate
       --------------
     → ¬ (∀ x → B x)
 ```
+
+Some additional lemmas from the seminar.
+
+```
+lemma-c : (¬ B → ¬ A) → (A → ¬ ¬ B)
+lemma-c imp a ¬b = imp ¬b a
+
+lemma-d : ¬ ¬ ¬ A → ¬ A
+lemma-d ¬¬¬a a = ¬¬¬a (λ ¬a → ¬a a)
+```
