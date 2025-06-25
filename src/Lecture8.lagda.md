@@ -328,12 +328,1064 @@ postulate
 
 ```
 _ : twoᶜ · sucᶜ · `zero —↠ `suc `suc `zero
-_ = {!!}
+_ = step—→ (twoᶜ · sucᶜ · `zero)
+      (step—→ ((ƛ "x" ⇒ ` "f" · (` "f" · ` "x")) [ "f" := sucᶜ ] · `zero)
+       (step—→
+        (do-binder "x" (` "f" · (` "f" · ` "x")) "f" sucᶜ [ "x" := `zero ])
+        (step—→
+         (((` "f") [ "f" := sucᶜ ]) [ "x" := `zero ] ·
+          do-binder "m" (`suc ` "m") "x" `zero [ "m" :=
+          ((` "x") [ "f" := sucᶜ ]) [ "x" := `zero ] ])
+         (do-binder "m" (`suc ` "m") "x" `zero [ "m" :=
+          do-binder "m" (`suc ` "m") "x" `zero [ "m" :=
+          ((` "x") [ "f" := sucᶜ ]) [ "x" := `zero ] ]
+          ]
+          ∎)
+         (β-ƛ (`suc `zero)))
+        (ξ-·₂ (ƛ "m" ⇒ do-binder "m" (`suc ` "m") "x" `zero) (β-ƛ `zero)))
+       (β-ƛ `zero))
+      (ξ-·₁ (β-ƛ (ƛ "m" ⇒ `suc ` "m")))
 ```
 
 ```
 _ : plus · two · two —↠ `suc `suc `suc `suc `zero
-_ = {!!}
+_ = step—→ (plus · two · two)
+      (step—→
+       ((ƛ "x" ⇒
+         (ƛ "y" ⇒
+          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+          `suc (` "plus" · ` "x'" · ` "y") ]))
+        [ "plus" :=
+        μ "plus" ⇒
+        (ƛ "x" ⇒
+         (ƛ "y" ⇒
+          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+          `suc (` "plus" · ` "x'" · ` "y") ]))
+        ]
+        · two
+        · two)
+       (step—→
+        (do-binder "x"
+         (ƛ "y" ⇒
+          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+          `suc (` "plus" · ` "x'" · ` "y") ])
+         "plus"
+         (μ "plus" ⇒
+          (ƛ "x" ⇒
+           (ƛ "y" ⇒
+            case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+            `suc (` "plus" · ` "x'" · ` "y") ])))
+         [ "x" := two ]
+         · two)
+        (step—→
+         (do-binder "y"
+          (do-binder "y"
+           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+           `suc (` "plus" · ` "x'" · ` "y") ]
+           "plus"
+           (μ "plus" ⇒
+            (ƛ "x" ⇒
+             (ƛ "y" ⇒
+              case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+              `suc (` "plus" · ` "x'" · ` "y") ]))))
+          "x" two
+          [ "y" := two ])
+         (step—→
+          (do-binder "x'"
+           (do-binder "x'"
+            (do-binder "x'" (`suc (` "plus" · ` "x'" · ` "y")) "plus"
+             (μ "plus" ⇒
+              (ƛ "x" ⇒
+               (ƛ "y" ⇒
+                case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                `suc (` "plus" · ` "x'" · ` "y") ]))))
+            "x" two)
+           "y" two
+           [ "x'" := (`suc `zero) [ "y" := two ] ])
+          (step—→
+           (`suc
+            (do-binder "plus"
+             (do-binder "plus"
+              (do-binder "plus"
+               (ƛ "x" ⇒
+                (ƛ "y" ⇒
+                 case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                 `suc (` "plus" · ` "x'" · ` "y") ]))
+               "x" two)
+              "y" two)
+             "x'" ((`suc `zero) [ "y" := two ])
+             [ "plus" :=
+             μ "plus" ⇒
+             do-binder "plus"
+             (do-binder "plus"
+              (do-binder "plus"
+               (ƛ "x" ⇒
+                (ƛ "y" ⇒
+                 case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                 `suc (` "plus" · ` "x'" · ` "y") ]))
+               "x" two)
+              "y" two)
+             "x'" ((`suc `zero) [ "y" := two ])
+             ]
+             ·
+             ((((` "x'") [ "plus" :=
+                μ "plus" ⇒
+                (ƛ "x" ⇒
+                 (ƛ "y" ⇒
+                  case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                  `suc (` "plus" · ` "x'" · ` "y") ]))
+                ])
+               [ "x" := two ])
+              [ "y" := two ])
+             [ "x'" := (`suc `zero) [ "y" := two ] ]
+             ·
+             ((((` "y") [ "plus" :=
+                μ "plus" ⇒
+                (ƛ "x" ⇒
+                 (ƛ "y" ⇒
+                  case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                  `suc (` "plus" · ` "x'" · ` "y") ]))
+                ])
+               [ "x" := two ])
+              [ "y" := two ])
+             [ "x'" := (`suc `zero) [ "y" := two ] ]))
+           (step—→
+            (`suc
+             (do-binder "x"
+              (do-binder "x"
+               (do-binder "x"
+                (do-binder "x"
+                 (ƛ "y" ⇒
+                  case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                  `suc (` "plus" · ` "x'" · ` "y") ])
+                 "x" two)
+                "y" two)
+               "x'" ((`suc `zero) [ "y" := two ]))
+              "plus"
+              (μ "plus" ⇒
+               do-binder "plus"
+               (do-binder "plus"
+                (do-binder "plus"
+                 (ƛ "x" ⇒
+                  (ƛ "y" ⇒
+                   case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                   `suc (` "plus" · ` "x'" · ` "y") ]))
+                 "x" two)
+                "y" two)
+               "x'" ((`suc `zero) [ "y" := two ]))
+              [ "x" :=
+              ((((` "x'") [ "plus" :=
+                 μ "plus" ⇒
+                 (ƛ "x" ⇒
+                  (ƛ "y" ⇒
+                   case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                   `suc (` "plus" · ` "x'" · ` "y") ]))
+                 ])
+                [ "x" := two ])
+               [ "y" := two ])
+              [ "x'" := (`suc `zero) [ "y" := two ] ]
+              ]
+              ·
+              ((((` "y") [ "plus" :=
+                 μ "plus" ⇒
+                 (ƛ "x" ⇒
+                  (ƛ "y" ⇒
+                   case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                   `suc (` "plus" · ` "x'" · ` "y") ]))
+                 ])
+                [ "x" := two ])
+               [ "y" := two ])
+              [ "x'" := (`suc `zero) [ "y" := two ] ]))
+            (step—→
+             (`suc
+              do-binder "y"
+              (do-binder "y"
+               (do-binder "y"
+                (do-binder "y"
+                 case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                 `suc (` "plus" · ` "x'" · ` "y") ]
+                 "y" two)
+                "x'" ((`suc `zero) [ "y" := two ]))
+               "plus"
+               (μ "plus" ⇒
+                do-binder "plus"
+                (do-binder "plus"
+                 (do-binder "plus"
+                  (ƛ "x" ⇒
+                   (ƛ "y" ⇒
+                    case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                    `suc (` "plus" · ` "x'" · ` "y") ]))
+                  "x" two)
+                 "y" two)
+                "x'" ((`suc `zero) [ "y" := two ])))
+              "x"
+              (((((` "x'") [ "plus" :=
+                  μ "plus" ⇒
+                  (ƛ "x" ⇒
+                   (ƛ "y" ⇒
+                    case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                    `suc (` "plus" · ` "x'" · ` "y") ]))
+                  ])
+                 [ "x" := two ])
+                [ "y" := two ])
+               [ "x'" := (`suc `zero) [ "y" := two ] ])
+              [ "y" :=
+              ((((` "y") [ "plus" :=
+                 μ "plus" ⇒
+                 (ƛ "x" ⇒
+                  (ƛ "y" ⇒
+                   case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                   `suc (` "plus" · ` "x'" · ` "y") ]))
+                 ])
+                [ "x" := two ])
+               [ "y" := two ])
+              [ "x'" := (`suc `zero) [ "y" := two ] ]
+              ])
+             (step—→
+              (`suc
+               do-binder "x'"
+               (do-binder "x'"
+                (do-binder "x'"
+                 (do-binder "x'" (`suc (` "plus" · ` "x'" · ` "y")) "x'"
+                  ((`suc `zero) [ "y" := two ]))
+                 "plus"
+                 (μ "plus" ⇒
+                  do-binder "plus"
+                  (do-binder "plus"
+                   (do-binder "plus"
+                    (ƛ "x" ⇒
+                     (ƛ "y" ⇒
+                      case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                      `suc (` "plus" · ` "x'" · ` "y") ]))
+                    "x" two)
+                   "y" two)
+                  "x'" ((`suc `zero) [ "y" := two ])))
+                "x"
+                (((((` "x'") [ "plus" :=
+                    μ "plus" ⇒
+                    (ƛ "x" ⇒
+                     (ƛ "y" ⇒
+                      case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                      `suc (` "plus" · ` "x'" · ` "y") ]))
+                    ])
+                   [ "x" := two ])
+                  [ "y" := two ])
+                 [ "x'" := (`suc `zero) [ "y" := two ] ]))
+               "y"
+               (((((` "y") [ "plus" :=
+                   μ "plus" ⇒
+                   (ƛ "x" ⇒
+                    (ƛ "y" ⇒
+                     case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                     `suc (` "plus" · ` "x'" · ` "y") ]))
+                   ])
+                  [ "x" := two ])
+                 [ "y" := two ])
+                [ "x'" := (`suc `zero) [ "y" := two ] ])
+               [ "x'" :=
+               (`zero [ "y" := two ]) [ "y" :=
+               ((((` "y") [ "plus" :=
+                  μ "plus" ⇒
+                  (ƛ "x" ⇒
+                   (ƛ "y" ⇒
+                    case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                    `suc (` "plus" · ` "x'" · ` "y") ]))
+                  ])
+                 [ "x" := two ])
+                [ "y" := two ])
+               [ "x'" := (`suc `zero) [ "y" := two ] ]
+               ]
+               ])
+              (step—→
+               (`suc
+                (`suc
+                 (do-binder "plus"
+                  (do-binder "plus"
+                   (do-binder "plus"
+                    (do-binder "plus"
+                     (do-binder "plus"
+                      (do-binder "plus"
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       "x" two)
+                      "y" two)
+                     "x'" ((`suc `zero) [ "y" := two ]))
+                    "x"
+                    (((((` "x'") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                   "y"
+                   (((((` "y") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                  "x'"
+                  ((`zero [ "y" := two ]) [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      (ƛ "x" ⇒
+                       (ƛ "y" ⇒
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]))
+                      ])
+                     [ "x" := two ])
+                    [ "y" := two ])
+                   [ "x'" := (`suc `zero) [ "y" := two ] ]
+                   ])
+                  [ "plus" :=
+                  μ "plus" ⇒
+                  do-binder "plus"
+                  (do-binder "plus"
+                   (do-binder "plus"
+                    (do-binder "plus"
+                     (do-binder "plus"
+                      (do-binder "plus"
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       "x" two)
+                      "y" two)
+                     "x'" ((`suc `zero) [ "y" := two ]))
+                    "x"
+                    (((((` "x'") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                   "y"
+                   (((((` "y") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                  "x'"
+                  ((`zero [ "y" := two ]) [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      (ƛ "x" ⇒
+                       (ƛ "y" ⇒
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]))
+                      ])
+                     [ "x" := two ])
+                    [ "y" := two ])
+                   [ "x'" := (`suc `zero) [ "y" := two ] ]
+                   ])
+                  ]
+                  ·
+                  ((((` "x'") [ "plus" :=
+                     μ "plus" ⇒
+                     do-binder "plus"
+                     (do-binder "plus"
+                      (do-binder "plus"
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       "x" two)
+                      "y" two)
+                     "x'" ((`suc `zero) [ "y" := two ])
+                     ])
+                    [ "x" :=
+                    ((((` "x'") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]
+                    ])
+                   [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      (ƛ "x" ⇒
+                       (ƛ "y" ⇒
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]))
+                      ])
+                     [ "x" := two ])
+                    [ "y" := two ])
+                   [ "x'" := (`suc `zero) [ "y" := two ] ]
+                   ])
+                  [ "x'" :=
+                  (`zero [ "y" := two ]) [ "y" :=
+                  ((((` "y") [ "plus" :=
+                     μ "plus" ⇒
+                     (ƛ "x" ⇒
+                      (ƛ "y" ⇒
+                       case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                       `suc (` "plus" · ` "x'" · ` "y") ]))
+                     ])
+                    [ "x" := two ])
+                   [ "y" := two ])
+                  [ "x'" := (`suc `zero) [ "y" := two ] ]
+                  ]
+                  ]
+                  ·
+                  ((((` "y") [ "plus" :=
+                     μ "plus" ⇒
+                     do-binder "plus"
+                     (do-binder "plus"
+                      (do-binder "plus"
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       "x" two)
+                      "y" two)
+                     "x'" ((`suc `zero) [ "y" := two ])
+                     ])
+                    [ "x" :=
+                    ((((` "x'") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]
+                    ])
+                   [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      (ƛ "x" ⇒
+                       (ƛ "y" ⇒
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]))
+                      ])
+                     [ "x" := two ])
+                    [ "y" := two ])
+                   [ "x'" := (`suc `zero) [ "y" := two ] ]
+                   ])
+                  [ "x'" :=
+                  (`zero [ "y" := two ]) [ "y" :=
+                  ((((` "y") [ "plus" :=
+                     μ "plus" ⇒
+                     (ƛ "x" ⇒
+                      (ƛ "y" ⇒
+                       case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                       `suc (` "plus" · ` "x'" · ` "y") ]))
+                     ])
+                    [ "x" := two ])
+                   [ "y" := two ])
+                  [ "x'" := (`suc `zero) [ "y" := two ] ]
+                  ]
+                  ])))
+               (step—→
+                (`suc
+                 (`suc
+                  (do-binder "x"
+                   (do-binder "x"
+                    (do-binder "x"
+                     (do-binder "x"
+                      (do-binder "x"
+                       (do-binder "x"
+                        (do-binder "x"
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ])
+                         "x" two)
+                        "y" two)
+                       "x'" ((`suc `zero) [ "y" := two ]))
+                      "x"
+                      (((((` "x'") [ "plus" :=
+                          μ "plus" ⇒
+                          (ƛ "x" ⇒
+                           (ƛ "y" ⇒
+                            case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                            `suc (` "plus" · ` "x'" · ` "y") ]))
+                          ])
+                         [ "x" := two ])
+                        [ "y" := two ])
+                       [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                     "y"
+                     (((((` "y") [ "plus" :=
+                         μ "plus" ⇒
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         ])
+                        [ "x" := two ])
+                       [ "y" := two ])
+                      [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                    "x'"
+                    ((`zero [ "y" := two ]) [ "y" :=
+                     ((((` "y") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]
+                     ]))
+                   "plus"
+                   (μ "plus" ⇒
+                    do-binder "plus"
+                    (do-binder "plus"
+                     (do-binder "plus"
+                      (do-binder "plus"
+                       (do-binder "plus"
+                        (do-binder "plus"
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         "x" two)
+                        "y" two)
+                       "x'" ((`suc `zero) [ "y" := two ]))
+                      "x"
+                      (((((` "x'") [ "plus" :=
+                          μ "plus" ⇒
+                          (ƛ "x" ⇒
+                           (ƛ "y" ⇒
+                            case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                            `suc (` "plus" · ` "x'" · ` "y") ]))
+                          ])
+                         [ "x" := two ])
+                        [ "y" := two ])
+                       [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                     "y"
+                     (((((` "y") [ "plus" :=
+                         μ "plus" ⇒
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         ])
+                        [ "x" := two ])
+                       [ "y" := two ])
+                      [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                    "x'"
+                    ((`zero [ "y" := two ]) [ "y" :=
+                     ((((` "y") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]
+                     ]))
+                   [ "x" :=
+                   ((((` "x'") [ "plus" :=
+                      μ "plus" ⇒
+                      do-binder "plus"
+                      (do-binder "plus"
+                       (do-binder "plus"
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        "x" two)
+                       "y" two)
+                      "x'" ((`suc `zero) [ "y" := two ])
+                      ])
+                     [ "x" :=
+                     ((((` "x'") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]
+                     ])
+                    [ "y" :=
+                    ((((` "y") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]
+                    ])
+                   [ "x'" :=
+                   (`zero [ "y" := two ]) [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      (ƛ "x" ⇒
+                       (ƛ "y" ⇒
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]))
+                      ])
+                     [ "x" := two ])
+                    [ "y" := two ])
+                   [ "x'" := (`suc `zero) [ "y" := two ] ]
+                   ]
+                   ]
+                   ]
+                   ·
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      do-binder "plus"
+                      (do-binder "plus"
+                       (do-binder "plus"
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        "x" two)
+                       "y" two)
+                      "x'" ((`suc `zero) [ "y" := two ])
+                      ])
+                     [ "x" :=
+                     ((((` "x'") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]
+                     ])
+                    [ "y" :=
+                    ((((` "y") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]
+                    ])
+                   [ "x'" :=
+                   (`zero [ "y" := two ]) [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      (ƛ "x" ⇒
+                       (ƛ "y" ⇒
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]))
+                      ])
+                     [ "x" := two ])
+                    [ "y" := two ])
+                   [ "x'" := (`suc `zero) [ "y" := two ] ]
+                   ]
+                   ])))
+                (step—→
+                 (`suc
+                  (`suc
+                   do-binder "y"
+                   (do-binder "y"
+                    (do-binder "y"
+                     (do-binder "y"
+                      (do-binder "y"
+                       (do-binder "y"
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]
+                        "y" two)
+                       "x'" ((`suc `zero) [ "y" := two ]))
+                      "y"
+                      (((((` "y") [ "plus" :=
+                          μ "plus" ⇒
+                          (ƛ "x" ⇒
+                           (ƛ "y" ⇒
+                            case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                            `suc (` "plus" · ` "x'" · ` "y") ]))
+                          ])
+                         [ "x" := two ])
+                        [ "y" := two ])
+                       [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                     "x'"
+                     ((`zero [ "y" := two ]) [ "y" :=
+                      ((((` "y") [ "plus" :=
+                         μ "plus" ⇒
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         ])
+                        [ "x" := two ])
+                       [ "y" := two ])
+                      [ "x'" := (`suc `zero) [ "y" := two ] ]
+                      ]))
+                    "plus"
+                    (μ "plus" ⇒
+                     do-binder "plus"
+                     (do-binder "plus"
+                      (do-binder "plus"
+                       (do-binder "plus"
+                        (do-binder "plus"
+                         (do-binder "plus"
+                          (ƛ "x" ⇒
+                           (ƛ "y" ⇒
+                            case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                            `suc (` "plus" · ` "x'" · ` "y") ]))
+                          "x" two)
+                         "y" two)
+                        "x'" ((`suc `zero) [ "y" := two ]))
+                       "x"
+                       (((((` "x'") [ "plus" :=
+                           μ "plus" ⇒
+                           (ƛ "x" ⇒
+                            (ƛ "y" ⇒
+                             case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                             `suc (` "plus" · ` "x'" · ` "y") ]))
+                           ])
+                          [ "x" := two ])
+                         [ "y" := two ])
+                        [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                      "y"
+                      (((((` "y") [ "plus" :=
+                          μ "plus" ⇒
+                          (ƛ "x" ⇒
+                           (ƛ "y" ⇒
+                            case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                            `suc (` "plus" · ` "x'" · ` "y") ]))
+                          ])
+                         [ "x" := two ])
+                        [ "y" := two ])
+                       [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                     "x'"
+                     ((`zero [ "y" := two ]) [ "y" :=
+                      ((((` "y") [ "plus" :=
+                         μ "plus" ⇒
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         ])
+                        [ "x" := two ])
+                       [ "y" := two ])
+                      [ "x'" := (`suc `zero) [ "y" := two ] ]
+                      ])))
+                   "x"
+                   (((((` "x'") [ "plus" :=
+                       μ "plus" ⇒
+                       do-binder "plus"
+                       (do-binder "plus"
+                        (do-binder "plus"
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         "x" two)
+                        "y" two)
+                       "x'" ((`suc `zero) [ "y" := two ])
+                       ])
+                      [ "x" :=
+                      ((((` "x'") [ "plus" :=
+                         μ "plus" ⇒
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         ])
+                        [ "x" := two ])
+                       [ "y" := two ])
+                      [ "x'" := (`suc `zero) [ "y" := two ] ]
+                      ])
+                     [ "y" :=
+                     ((((` "y") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]
+                     ])
+                    [ "x'" :=
+                    (`zero [ "y" := two ]) [ "y" :=
+                    ((((` "y") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]
+                    ]
+                    ])
+                   [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      do-binder "plus"
+                      (do-binder "plus"
+                       (do-binder "plus"
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        "x" two)
+                       "y" two)
+                      "x'" ((`suc `zero) [ "y" := two ])
+                      ])
+                     [ "x" :=
+                     ((((` "x'") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]
+                     ])
+                    [ "y" :=
+                    ((((` "y") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]
+                    ])
+                   [ "x'" :=
+                   (`zero [ "y" := two ]) [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      (ƛ "x" ⇒
+                       (ƛ "y" ⇒
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]))
+                      ])
+                     [ "x" := two ])
+                    [ "y" := two ])
+                   [ "x'" := (`suc `zero) [ "y" := two ] ]
+                   ]
+                   ]
+                   ]))
+                 (`suc
+                  (`suc
+                   (((((` "y") [ "x'" := (`suc `zero) [ "y" := two ] ]) [ "x'" :=
+                      (`zero [ "y" := two ]) [ "y" :=
+                      ((((` "y") [ "plus" :=
+                         μ "plus" ⇒
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         ])
+                        [ "x" := two ])
+                       [ "y" := two ])
+                      [ "x'" := (`suc `zero) [ "y" := two ] ]
+                      ]
+                      ])
+                     [ "plus" :=
+                     μ "plus" ⇒
+                     do-binder "plus"
+                     (do-binder "plus"
+                      (do-binder "plus"
+                       (do-binder "plus"
+                        (do-binder "plus"
+                         (do-binder "plus"
+                          (ƛ "x" ⇒
+                           (ƛ "y" ⇒
+                            case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                            `suc (` "plus" · ` "x'" · ` "y") ]))
+                          "x" two)
+                         "y" two)
+                        "x'" ((`suc `zero) [ "y" := two ]))
+                       "x"
+                       (((((` "x'") [ "plus" :=
+                           μ "plus" ⇒
+                           (ƛ "x" ⇒
+                            (ƛ "y" ⇒
+                             case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                             `suc (` "plus" · ` "x'" · ` "y") ]))
+                           ])
+                          [ "x" := two ])
+                         [ "y" := two ])
+                        [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                      "y"
+                      (((((` "y") [ "plus" :=
+                          μ "plus" ⇒
+                          (ƛ "x" ⇒
+                           (ƛ "y" ⇒
+                            case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                            `suc (` "plus" · ` "x'" · ` "y") ]))
+                          ])
+                         [ "x" := two ])
+                        [ "y" := two ])
+                       [ "x'" := (`suc `zero) [ "y" := two ] ]))
+                     "x'"
+                     ((`zero [ "y" := two ]) [ "y" :=
+                      ((((` "y") [ "plus" :=
+                         μ "plus" ⇒
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         ])
+                        [ "x" := two ])
+                       [ "y" := two ])
+                      [ "x'" := (`suc `zero) [ "y" := two ] ]
+                      ])
+                     ])
+                    [ "x" :=
+                    ((((` "x'") [ "plus" :=
+                       μ "plus" ⇒
+                       do-binder "plus"
+                       (do-binder "plus"
+                        (do-binder "plus"
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         "x" two)
+                        "y" two)
+                       "x'" ((`suc `zero) [ "y" := two ])
+                       ])
+                      [ "x" :=
+                      ((((` "x'") [ "plus" :=
+                         μ "plus" ⇒
+                         (ƛ "x" ⇒
+                          (ƛ "y" ⇒
+                           case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                           `suc (` "plus" · ` "x'" · ` "y") ]))
+                         ])
+                        [ "x" := two ])
+                       [ "y" := two ])
+                      [ "x'" := (`suc `zero) [ "y" := two ] ]
+                      ])
+                     [ "y" :=
+                     ((((` "y") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]
+                     ])
+                    [ "x'" :=
+                    (`zero [ "y" := two ]) [ "y" :=
+                    ((((` "y") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]
+                    ]
+                    ]
+                    ])
+                   [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      do-binder "plus"
+                      (do-binder "plus"
+                       (do-binder "plus"
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        "x" two)
+                       "y" two)
+                      "x'" ((`suc `zero) [ "y" := two ])
+                      ])
+                     [ "x" :=
+                     ((((` "x'") [ "plus" :=
+                        μ "plus" ⇒
+                        (ƛ "x" ⇒
+                         (ƛ "y" ⇒
+                          case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                          `suc (` "plus" · ` "x'" · ` "y") ]))
+                        ])
+                       [ "x" := two ])
+                      [ "y" := two ])
+                     [ "x'" := (`suc `zero) [ "y" := two ] ]
+                     ])
+                    [ "y" :=
+                    ((((` "y") [ "plus" :=
+                       μ "plus" ⇒
+                       (ƛ "x" ⇒
+                        (ƛ "y" ⇒
+                         case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                         `suc (` "plus" · ` "x'" · ` "y") ]))
+                       ])
+                      [ "x" := two ])
+                     [ "y" := two ])
+                    [ "x'" := (`suc `zero) [ "y" := two ] ]
+                    ])
+                   [ "x'" :=
+                   (`zero [ "y" := two ]) [ "y" :=
+                   ((((` "y") [ "plus" :=
+                      μ "plus" ⇒
+                      (ƛ "x" ⇒
+                       (ƛ "y" ⇒
+                        case ` "x" [zero⇒ ` "y" |suc "x'" ⇒
+                        `suc (` "plus" · ` "x'" · ` "y") ]))
+                      ])
+                     [ "x" := two ])
+                    [ "y" := two ])
+                   [ "x'" := (`suc `zero) [ "y" := two ] ]
+                   ]
+                   ]
+                   ])
+                  ∎)
+                 (ξ-suc (ξ-suc β-zero)))
+                (ξ-suc (ξ-suc (β-ƛ (`suc (`suc `zero))))))
+               (ξ-suc (ξ-suc (ξ-·₁ (β-ƛ `zero)))))
+              (ξ-suc (ξ-suc (ξ-·₁ (ξ-·₁ β-μ)))))
+             (ξ-suc (β-suc `zero)))
+            (ξ-suc (β-ƛ (`suc (`suc `zero)))))
+           (ξ-suc (ξ-·₁ (β-ƛ (`suc `zero)))))
+          (ξ-suc (ξ-·₁ (ξ-·₁ β-μ))))
+         (β-suc (`suc `zero)))
+        (β-ƛ (`suc (`suc `zero))))
+       (ξ-·₁ (β-ƛ (`suc (`suc `zero)))))
+      (ξ-·₁ (ξ-·₁ β-μ))
 ```
 
 ## Typing
@@ -449,34 +1501,37 @@ Ch : Type → Type
 Ch A = (A ⇒ A) ⇒ A ⇒ A
 
 ⊢twoᶜ : ∀ {Γ A} → Γ ⊢ twoᶜ ⦂ Ch A
-⊢twoᶜ = {!!}
+⊢twoᶜ = ⊢ƛ (⊢ƛ ((⊢` (S (λ ()) Z)) · ((⊢` (S (λ ()) Z)) · (⊢` Z))))
 ```
 
 ```
 ⊢two : ∀ {Γ} → Γ ⊢ two ⦂ `ℕ
-⊢two = {!!}
+⊢two = ⊢suc (⊢suc ⊢zero)
 
 ⊢plus : ∀ {Γ} → Γ ⊢ plus ⦂ `ℕ ⇒ `ℕ ⇒ `ℕ
-⊢plus = {!!}
+⊢plus = ⊢μ (⊢ƛ (⊢ƛ (⊢case (⊢` (S (λ ()) Z)) (⊢` Z) (⊢suc (((⊢` (S (λ ()) (S (λ ()) (S (λ ()) Z)))) · (⊢` Z)) · (⊢` (S (λ ()) Z)))))))
 
 ⊢2+2 : ∅ ⊢ plus · two · two ⦂ `ℕ
-⊢2+2 = {!!}
+⊢2+2 = (⊢plus · ⊢two) · ⊢two
 ```
 
 Some untypeable terms
 
 ```
 nope₁ : ∀ {A} → ¬ (∅ ⊢ `zero · `suc `zero ⦂ A)
-nope₁ = {!!}
+nope₁ (() · _)
 
 nope₂ : ∀ {A} → ¬ (∅ ⊢ ƛ "x" ⇒ ` "x" · ` "x" ⦂ A)
-nope₂ = {!!}
+nope₂ (⊢ƛ (⊢` Z · ⊢` (S x≢x _))) = contradiction refl x≢x
 ```
 
 ### Lookup is functional
 
 ```
 ∋-functional : ∀ {Γ x A B} → Γ ∋ x ⦂ A → Γ ∋ x ⦂ B → A ≡ B
-∋-functional = {!!}
+∋-functional Z Z = refl
+∋-functional Z (S x≢x _) = contradiction refl x≢x
+∋-functional (S x≢x _) Z = contradiction refl x≢x
+∋-functional (S x x∈) (S x₁ x∈₁) = ∋-functional x∈ x∈₁
 ```
 
