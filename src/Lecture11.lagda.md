@@ -275,23 +275,48 @@ It requires a bunch of lemmas about multi-step reduction.
 
 For the reverse direction a little more work is required.
 
+First we observe that values evaluate to themselves.
+Additionally, if a value `V` evaluates to some term, the outcome must equal to `V`.
+
 ```
-  small⇒big : ∀ {M V : ∅ ⊢ A} → M ⟹ V → Value V → M ⇓ V
-  small⇒big (_ ∎) (ƛ N) = ⇓-ƛ
-  small⇒big (_ ∎) `zero = ⇓-zero
-  small⇒big (_ ∎) (`suc val-V) = ⇓-suc (small⇒big (_ ∎) val-V)
-  small⇒big (_ —→⟨ ξ-·₁ L⟶L′ ⟩ M⟹V) val-V = {!!}
-  small⇒big (_ —→⟨ ξ-·₂ x x₁ ⟩ M⟹V) val-V = {!!}
-  small⇒big (_ —→⟨ β-ƛ x ⟩ M⟹V) val-V = ⇓-· (small⇒big (_ ∎) (ƛ _)) (small⇒big (_ ∎) x) (small⇒big M⟹V val-V)
-  small⇒big (_ —→⟨ ξ-suc x ⟩ M⟹V) val-V = {!!}
-  small⇒big (_ —→⟨ ξ-case x ⟩ M⟹V) val-V = {!!}
-  small⇒big (_ —→⟨ β-zero ⟩ M⟹V) val-V = ⇓-case-zero ⇓-zero (small⇒big M⟹V val-V)
-  small⇒big (_ —→⟨ β-suc x ⟩ M⟹V) val-V = ⇓-case-suc (small⇒big (_ ∎) (`suc x)) (small⇒big M⟹V val-V)
-  small⇒big (_ —→⟨ β-μ ⟩ M⟹V) val-V = ⇓-μ (small⇒big M⟹V val-V)
+  V⇓V : ∀ {V : ∅ ⊢ A} → Value V → V ⇓ V
+  V⇓V (ƛ N) = ⇓-ƛ
+  V⇓V `zero = ⇓-zero
+  V⇓V (`suc v) = ⇓-suc (V⇓V v)
+
+  V⇓W : ∀ {V W : ∅ ⊢ A} → Value V → V ⇓ W → V ≡ W
+  V⇓W (ƛ _) ⇓-ƛ = refl
+  V⇓W `zero ⇓-zero = refl
+  V⇓W (`suc v) (⇓-suc V⇓W₁) = cong `suc_ (V⇓W v V⇓W₁)
 ```
 
-Lemma: L · M ⟹ V can be decomposed into
-       ξ-·₁ (L ⟹ ƛ L′) ++ ξ-·₂ (M ⟹ WM) ++ β-ƛ ++ (L′ [ WM ] ⟹ V)
+We also need the following expansion lemma:
+If M ⟶ N and N ⇓ V, then the latter evaluation
+can be expanded to an evaluation of M ⇓ V.
+
+```
+  M⟶⇓V : ∀ {M N V : ∅ ⊢ A} → M ⟶ N → N ⇓ V → M ⇓ V
+  M⟶⇓V (ξ-·₁ M⟶N) (⇓-· N⇓V N⇓V₁ N⇓V₂) = ⇓-· (M⟶⇓V M⟶N N⇓V) N⇓V₁ N⇓V₂
+  M⟶⇓V (ξ-·₂ v@(ƛ N) M⟶N) (⇓-· N⇓V N⇓V₁ N⇓V₂)
+    rewrite V⇓W v N⇓V = ⇓-· (V⇓V (ƛ _)) (M⟶⇓V M⟶N N⇓V₁) N⇓V₂
+  M⟶⇓V (β-ƛ vx) N⇓V = ⇓-· (V⇓V (ƛ _)) (V⇓V vx) N⇓V
+  M⟶⇓V (ξ-suc M⟶N) (⇓-suc N⇓V) = ⇓-suc (M⟶⇓V M⟶N N⇓V)
+  M⟶⇓V (ξ-case M⟶N) (⇓-case-zero N⇓V N⇓V₁) = ⇓-case-zero (M⟶⇓V M⟶N N⇓V) N⇓V₁
+  M⟶⇓V (ξ-case M⟶N) (⇓-case-suc N⇓V N⇓V₁) = ⇓-case-suc (M⟶⇓V M⟶N N⇓V) N⇓V₁
+  M⟶⇓V β-zero N⇓V = ⇓-case-zero (V⇓V `zero) N⇓V
+  M⟶⇓V (β-suc vx) N⇓V = ⇓-case-suc (V⇓V (`suc vx)) N⇓V
+  M⟶⇓V β-μ N⇓V = ⇓-μ N⇓V
+```
+
+The previous lemmas cover the two inductive cases for the main theorem.
+
+
+```
+  small⇒big : ∀ {M V : ∅ ⊢ A} → M ⟹ V → Value V → M ⇓ V
+  small⇒big (V ∎) val-V = V⇓V val-V
+  small⇒big (M —→⟨ M⟶N ⟩ N⟹V) val-V = M⟶⇓V M⟶N (small⇒big N⟹V val-V)
+```
+
 
 # Towards denotational semantics
 
@@ -390,7 +415,7 @@ data _⊢_ : Context → Type → Set where
   recnat : ∀ {Γ A}
     → Γ ⊢ `ℕ
     → Γ ⊢ A
-    → Γ , A , `ℕ ⊢ A
+    → Γ ⊢ `ℕ ⇒ A ⇒ A
       ---------------
     → Γ ⊢ A
 ```
@@ -439,7 +464,7 @@ recnat′ (suc n) x₀ xₛ = xₛ n (recnat′ n x₀ xₛ)
 𝓔⟦ M · M₁ ⟧ γ = 𝓔⟦ M ⟧ γ (𝓔⟦ M₁ ⟧ γ)
 𝓔⟦ `zero ⟧ γ = 0
 𝓔⟦ `suc M ⟧ γ = suc (𝓔⟦ M ⟧ γ)
-𝓔⟦ recnat M M₁ M₂ ⟧ γ = recnat′ (𝓔⟦ M ⟧ γ) (𝓔⟦ M₁ ⟧ γ) λ n x → 𝓔⟦ M₂ ⟧ ⟨ ⟨ γ , x ⟩ , n ⟩
+𝓔⟦ recnat M M₁ M₂ ⟧ γ = recnat′ (𝓔⟦ M ⟧ γ) (𝓔⟦ M₁ ⟧ γ) (𝓔⟦ M₂ ⟧ γ)
 ```
 
 To compare with an operational semantics, we need to recapitulate some of the definitions
@@ -522,16 +547,16 @@ subst σ (recnat ⊢A ⊢A₁ ⊢A₂) = recnat (subst σ ⊢A) (subst σ ⊢A�
 Required case for type preservation / β reduction
 
 ```
+σ₀ : (M : Γ ⊢ B) → Sub (Γ , B) Γ
+σ₀ M Z = M
+σ₀ M (S x) = ` x
+
 _[_] : ∀ {Γ A B}
   → Γ , B ⊢ A
   → Γ ⊢ B
     ---------
   → Γ ⊢ A
-_[_] {Γ} {A} {B} N M = subst σ N
-  where
-    σ : Sub (Γ , B) Γ
-    σ Z = M
-    σ (S x) = ` x
+_[_] {Γ} {A} {B} N M = subst (σ₀ M) N
 ```
 
 ### Values
@@ -584,19 +609,19 @@ data _⟶_ : ∀ {Γ A} → (Γ ⊢ A) → (Γ ⊢ A) → Set where
       -----------------
     → `suc M ⟶ `suc M′
 
-  ξ-recnat : ∀ {Γ A} {L L′ : Γ ⊢ `ℕ} {M : Γ ⊢ A} {N : Γ , A , `ℕ ⊢ A}
+  ξ-recnat : ∀ {Γ A} {L L′ : Γ ⊢ `ℕ} {M : Γ ⊢ A} {N : Γ  ⊢ `ℕ ⇒ A ⇒ A}
     → L ⟶ L′
       -------------------------
     → recnat L M N ⟶ recnat L′ M N
 
-  β-zero :  ∀ {Γ A} {M : Γ ⊢ A} {N : Γ , A , `ℕ ⊢ A}
+  β-zero :  ∀ {Γ A} {M : Γ ⊢ A} {N : Γ ⊢ `ℕ ⇒ A ⇒ A}
       -------------------
     → recnat `zero M N ⟶ M
 
-  β-suc : ∀ {Γ A} {V : Γ ⊢ `ℕ} {M : Γ ⊢ A} {N : Γ , A , `ℕ ⊢ A}
+  β-suc : ∀ {Γ A} {V : Γ ⊢ `ℕ} {M : Γ ⊢ A} {N : Γ ⊢ `ℕ ⇒ A ⇒ A}
     → Value V
       ----------------------------
-    → recnat (`suc V) M N ⟶ (ƛ N [ weaken V ]) · recnat V M N
+    → recnat (`suc V) M N ⟶ N · V · recnat V M N
 ```
 
 ## Relation of small-step reduction to the denotational semantics
@@ -604,8 +629,40 @@ data _⟶_ : ∀ {Γ A} → (Γ ⊢ A) → (Γ ⊢ A) → Set where
 Soundness of small-step reduction
 
 ```
-sound⟶ : ∀ {M N : Γ ⊢ A} → (γ : 𝓒⟦ Γ ⟧) → 𝓔⟦ M ⟧ γ ≡ 𝓔⟦ N ⟧ γ
-sound⟶ = {!!}
+postulate
+  ext : ∀ {A B : Set} {f g : A → B} → (∀ x → f x ≡ g x) → f ≡ g
+
+𝓢⟦_⟧ : Sub Γ Δ → 𝓒⟦ Δ ⟧ → 𝓒⟦ Γ ⟧
+𝓢⟦_⟧ {Γ = ∅} σ δ = tt
+𝓢⟦_⟧ {Γ = Γ , A} σ δ = ⟨ (𝓢⟦ (σ ∘ S_) ⟧ δ) , (𝓔⟦ σ Z ⟧ δ) ⟩
+
+postulate
+  𝓢-ext : ∀ {a : 𝓣⟦ A ⟧} (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧) → ⟨ 𝓢⟦ σ ⟧ δ , a ⟩ ≡ 𝓢⟦ exts σ ⟧ ⟨ δ , a ⟩
+
+subst-id : (γ : 𝓒⟦ Γ ⟧) → γ ≡ 𝓢⟦ `_ ⟧ γ
+subst-id {Γ = ∅} tt = refl
+subst-id {Γ = Γ , A} ⟨ γ , a ⟩ = (cong ⟨_, a ⟩) {!!}
+
+sound-var : (x : Γ ∋ A) (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧) → 𝓥⟦ x ⟧ (𝓢⟦ σ ⟧ δ) ≡ 𝓔⟦ σ x ⟧ δ
+sound-var Z σ δ = refl
+sound-var (S x) σ δ = sound-var x (σ ∘ S_) δ
+
+sound-sub : (M : Γ ⊢ A) (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧) → 𝓔⟦ M ⟧ (𝓢⟦ σ ⟧ δ) ≡ 𝓔⟦ subst σ M ⟧ δ
+sound-sub (` x) σ δ = sound-var x σ δ
+sound-sub (ƛ M) σ δ = ext λ a → trans (cong 𝓔⟦ M ⟧ (𝓢-ext σ δ)) {!!}
+sound-sub (M · M₁) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ = refl
+sound-sub `zero σ δ = refl
+sound-sub (`suc M) σ δ rewrite sound-sub M σ δ = refl
+sound-sub (recnat M M₁ M₂) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ = {!!}
+
+sound⟶ : ∀ {M N : Γ ⊢ A} → M ⟶ N → (γ : 𝓒⟦ Γ ⟧) → 𝓔⟦ M ⟧ γ ≡ 𝓔⟦ N ⟧ γ
+sound⟶ (ξ-·₁ M⟶N) γ              rewrite sound⟶ M⟶N γ = refl
+sound⟶ (ξ-·₂ x M⟶N) γ            rewrite sound⟶ M⟶N γ = refl
+sound⟶ (β-ƛ {N = N}{W = W} x) γ  rewrite sym (sound-sub N (σ₀ W) γ) | sym (subst-id γ) = refl
+sound⟶ (ξ-suc M⟶N) γ             rewrite sound⟶ M⟶N γ = refl
+sound⟶ (ξ-recnat M⟶N) γ          rewrite sound⟶ M⟶N γ = refl
+sound⟶ β-zero γ = refl
+sound⟶ (β-suc x) γ = refl
 ```
 
 It is possible to show completeness, in the sense that
