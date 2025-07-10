@@ -123,7 +123,7 @@ To explain `recnat`, we consider the reduction rules informally.
 
 1.  `recnat zero M N` reduces to `M`
     ... just like `case`
-2.  `recnat (suc V) M N` reduces to `(ƛ N [ V ]) · recnat V M N`
+2.  `recnat (suc V) M N` reduces to `N · V · recnat V M N`
     we first pass the predecessor and then the result of the recursive call on the predecessor
 
 ## Denotational semantics
