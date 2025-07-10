@@ -27,7 +27,7 @@ infixl 7 _·_
 infix  8 `suc_
 infix  9 `_
 infix  9 S_
-infix  9 #_
+-- infix  9 #_
 ```
 
 
@@ -371,16 +371,18 @@ subst σ (μ ⊢A) = μ (subst (exts σ) ⊢A)
 Required case for type preservation / β reduction
 
 ```
+σ₀ : (M : Γ ⊢ B) → Sub (Γ , B) Γ
+σ₀ M Z = M
+σ₀ M (S x) = ` x
+
+
 _[_] : ∀ {Γ A B}
   → Γ , B ⊢ A
   → Γ ⊢ B
     ---------
   → Γ ⊢ A
-_[_] {Γ} {A} {B} N M = subst σ N
-  where
-    σ : Sub (Γ , B) Γ
-    σ Z = M
-    σ (S x) = ` x
+_[_] {Γ} {A} {B} N M = subst (σ₀ M) N
+
 ```
 
 
