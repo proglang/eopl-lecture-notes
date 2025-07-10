@@ -201,7 +201,7 @@ rename ρ (ƛ ⊢A) = ƛ rename (extr ρ) ⊢A
 rename ρ (⊢A · ⊢A₁) = (rename ρ ⊢A) · (rename ρ ⊢A₁)
 rename ρ `zero = `zero
 rename ρ (`suc ⊢A) = `suc (rename ρ ⊢A)
-rename ρ (recnat ⊢A ⊢A₁ ⊢A₂) = recnat (rename ρ ⊢A) (rename ρ ⊢A₁) {!!}
+rename ρ (recnat ⊢A ⊢A₁ ⊢A₂) = recnat (rename ρ ⊢A) (rename ρ ⊢A₁) (rename ρ ⊢A₂)
 ```
 
 ```
@@ -238,7 +238,7 @@ subst σ (ƛ ⊢A) = ƛ subst (exts σ) ⊢A
 subst σ (⊢A · ⊢A₁) = (subst σ ⊢A) · (subst σ ⊢A₁)
 subst σ `zero = `zero
 subst σ (`suc ⊢A) = `suc (subst σ ⊢A)
-subst σ (recnat ⊢A ⊢A₁ ⊢A₂) = recnat (subst σ ⊢A) (subst σ ⊢A₁) {!!}
+subst σ (recnat ⊢A ⊢A₁ ⊢A₂) = recnat (subst σ ⊢A) (subst σ ⊢A₁) (subst σ ⊢A₂)
 ```
 
 ### special case: single substitution
@@ -327,6 +327,8 @@ data _⟶_ : ∀ {Γ A} → (Γ ⊢ A) → (Γ ⊢ A) → Set where
 
 Soundness of small-step reduction
 
+Semantic substitution
+
 ```
 postulate
   ext : ∀ {A B : Set} {f g : A → B} → (∀ x → f x ≡ g x) → f ≡ g
@@ -341,7 +343,11 @@ postulate
 subst-id : (γ : 𝓒⟦ Γ ⟧) → γ ≡ 𝓢⟦ `_ ⟧ γ
 subst-id {Γ = ∅} tt = refl
 subst-id {Γ = Γ , A} ⟨ γ , a ⟩ = (cong ⟨_, a ⟩) {!!}
+```
 
+Composing a substitution with a semantic substitution
+
+```
 sound-var : (x : Γ ∋ A) (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧) → 𝓥⟦ x ⟧ (𝓢⟦ σ ⟧ δ) ≡ 𝓔⟦ σ x ⟧ δ
 sound-var Z σ δ = refl
 sound-var (S x) σ δ = sound-var x (σ ∘ S_) δ
@@ -352,8 +358,13 @@ sound-sub (ƛ M) σ δ = ext λ a → trans (cong 𝓔⟦ M ⟧ (𝓢-ext σ δ)
 sound-sub (M · M₁) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ = refl
 sound-sub `zero σ δ = refl
 sound-sub (`suc M) σ δ rewrite sound-sub M σ δ = refl
-sound-sub (recnat M M₁ M₂) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ = {!!}
+sound-sub (recnat M M₁ M₂) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ | sound-sub M₂ σ δ = refl
+```
 
+Soundness of the small-step semantics: making a reduction does not change the semantics
+
+
+```
 sound⟶ : ∀ {M N : Γ ⊢ A} → M ⟶ N → (γ : 𝓒⟦ Γ ⟧) → 𝓔⟦ M ⟧ γ ≡ 𝓔⟦ N ⟧ γ
 sound⟶ (ξ-·₁ M⟶N) γ              rewrite sound⟶ M⟶N γ = refl
 sound⟶ (ξ-·₂ x M⟶N) γ            rewrite sound⟶ M⟶N γ = refl
