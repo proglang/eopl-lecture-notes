@@ -16,7 +16,6 @@ open import Relation.Nullary.Decidable using (Dec; yes; no; False; toWitnessFals
 
 ```
 
-
 # Towards denotational semantics
 
 To ensure that we can choose sets (i.e., plain Agda types) as semantics domains,
@@ -119,12 +118,53 @@ data _⊢_ : Context → Type → Set where
     → Γ ⊢ A
 ```
 
+We encode `recnat` differently to the prior `case`. The `suc` branch of the `case` assumed
+a context extended with the predecessor. Equivalently, we could have asked for he `suc` branch
+to be a function of type `ℕ ⇒ A`.
+For the `recnat`, we would have to extend the context with two types, one for the predecesssor
+and one for the result of the recursive call.
+Here we use a function because the double extension is awkward to handle.
+
 To explain `recnat`, we consider the reduction rules informally.
 
 1.  `recnat zero M N` reduces to `M`
     ... just like `case`
 2.  `recnat (suc V) M N` reduces to `N · V · recnat V M N`
     we first pass the predecessor and then the result of the recursive call on the predecessor
+
+Some example terms
+
+```
+two : Γ ⊢ `ℕ
+two = `suc `suc `zero
+
+three : Γ ⊢ `ℕ
+three = `suc `suc `suc `zero
+
+plus : Γ ⊢ `ℕ ⇒ `ℕ ⇒ `ℕ
+plus = ƛ ƛ recnat (` (S Z)) (` Z) (ƛ ƛ `suc (` Z))
+
+mult : Γ ⊢ `ℕ ⇒ `ℕ ⇒ `ℕ
+mult = ƛ ƛ recnat (` (S Z)) `zero (ƛ ƛ (plus · ` (S (S Z))) · ` Z)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Denotational semantics
 
@@ -136,38 +176,78 @@ The semantic domain of a type is defined by induction.
 𝓣⟦ `ℕ ⟧ = ℕ
 ```
 
-We also need a semantics of typing contexts.
+We also need a semantics of typing contexts, which are modeled analogous to substitutions and renamings.
 
 ```
+module classical where
+  -- the classical interpretation of contexts is by nested pairs
+  𝓒⟦_⟧ : Context → Set
+  𝓒⟦ ∅ ⟧ = ⊤
+  𝓒⟦ Γ , A ⟧ = 𝓒⟦ Γ ⟧ × 𝓣⟦ A ⟧
+
+
 𝓒⟦_⟧ : Context → Set
-𝓒⟦ ∅ ⟧ = ⊤
-𝓒⟦ Γ , A ⟧ = 𝓒⟦ Γ ⟧ × 𝓣⟦ A ⟧
+𝓒⟦ Γ ⟧ = ∀ A → Γ ∋ A → 𝓣⟦ A ⟧
+
+extc : 𝓒⟦ Γ ⟧ → 𝓣⟦ A ⟧ → 𝓒⟦ Γ , A ⟧
+extc γ a _ Z = a
+extc γ a _ (S x) = γ _ x
 ```
 
-The semantics of a term is also defined by induction on terms.
-As the definition is compositional we have to provide semantics for
-open terms.
+In a first step towards defining the semantics, we define the semantics of `recnat`
+as an Agda function. It is related to primitive recursion.
 
 ```
-recnat′ : ∀ {X : Set} → ℕ → X → (ℕ → X → X) → X
+recnat′ : ∀ {X : Set} → ℕ → (x₀ : X) → (sₛ : ℕ → X → X) → X
 recnat′ zero x₀ xₛ = x₀
 recnat′ (suc n) x₀ xₛ = xₛ n (recnat′ n x₀ xₛ)
-
-𝓥⟦_⟧ : Γ ∋ A → 𝓒⟦ Γ ⟧ → 𝓣⟦ A ⟧
-𝓥⟦ Z ⟧ ⟨ _ , x ⟩ = x
-𝓥⟦ S x∈ ⟧ ⟨ γ , _ ⟩ = 𝓥⟦ x∈ ⟧ γ
-
-𝓔⟦_⟧ : Γ ⊢ A → 𝓒⟦ Γ ⟧ → 𝓣⟦ A ⟧
-𝓔⟦ ` x ⟧ γ = 𝓥⟦ x ⟧ γ
-𝓔⟦ ƛ M ⟧ γ = λ x → 𝓔⟦ M ⟧ ⟨ γ , x ⟩
-𝓔⟦ M · M₁ ⟧ γ = 𝓔⟦ M ⟧ γ (𝓔⟦ M₁ ⟧ γ)
-𝓔⟦ `zero ⟧ γ = 0
-𝓔⟦ `suc M ⟧ γ = suc (𝓔⟦ M ⟧ γ)
-𝓔⟦ recnat M M₁ M₂ ⟧ γ = recnat′ (𝓔⟦ M ⟧ γ) (𝓔⟦ M₁ ⟧ γ) (𝓔⟦ M₂ ⟧ γ)
 ```
+
+The semantics of a term is defined by induction on terms.
+As the definition is compositional we have to provide semantics for
+*open terms*. Hence, the semantics of a term of type `Γ ⊢ A` is a *function*
+that maps an element of the context semantics of `Γ` (a semantic environment)
+to an element of the type semantics of the return type `A`.
+
+```
+𝓔⟦_⟧ : Γ ⊢ A → (𝓒⟦ Γ ⟧ → 𝓣⟦ A ⟧)
+𝓔⟦ ` x ⟧ γ             = γ _ x
+𝓔⟦ ƛ M ⟧ γ             = λ v → 𝓔⟦ M ⟧ (extc γ v)
+𝓔⟦ M · M₁ ⟧ γ          = 𝓔⟦ M ⟧ γ (𝓔⟦ M₁ ⟧ γ)
+𝓔⟦ `zero ⟧ γ           = zero
+𝓔⟦ `suc M ⟧ γ          = suc (𝓔⟦ M ⟧ γ)
+𝓔⟦ recnat M M₁ M₂ ⟧ γ  = recnat′ (𝓔⟦ M ⟧ γ) (𝓔⟦ M₁ ⟧ γ) (𝓔⟦ M₂ ⟧ γ)
+```
+
+
+Run our examples!
+
+```
+γ∅ : 𝓒⟦ ∅ ⟧
+γ∅ = λ A → λ {()}
+
+_ : 𝓔⟦ two ⟧ γ∅ ≡ 2
+_ = refl
+
+_ : 𝓔⟦ plus · two · two ⟧ γ∅ ≡ 4
+_ = refl
+
+_ : 𝓔⟦ mult · two · three ⟧ γ∅ ≡ 6
+_ = refl
+
+_ : 𝓔⟦ mult ⟧ γ∅ (𝓔⟦ two ⟧ γ∅) (𝓔⟦ three ⟧ γ∅) ≡ 6
+_ = refl
+```
+
+
+
 
 To compare with an operational semantics, we need to recapitulate some of the definitions
 of the last chapter.
+
+
+
+
 
 ## Revised small-step semantis
 
@@ -204,18 +284,13 @@ rename ρ (`suc ⊢A) = `suc (rename ρ ⊢A)
 rename ρ (recnat ⊢A ⊢A₁ ⊢A₂) = recnat (rename ρ ⊢A) (rename ρ ⊢A₁) (rename ρ ⊢A₂)
 ```
 
-```
-weaken : Γ ⊢ A → Γ , B ⊢ A
-weaken M = rename S_ M
-```
-
 ### Substitution
 
 A substitution from Γ to Δ maps any variable of type `A` in an environment `Γ` to a term in environment Δ.
 
 ```
 Sub : Context → Context → Set
-Sub Γ Δ =  ∀ {A} → Γ ∋ A → Δ ⊢ A
+Sub Γ Δ  = ∀ {A} → Γ ∋ A → Δ ⊢ A
 ```
 
 Extension for substitution.
@@ -243,7 +318,7 @@ subst σ (recnat ⊢A ⊢A₁ ⊢A₂) = recnat (subst σ ⊢A) (subst σ ⊢A�
 
 ### special case: single substitution
 
-Required case for type preservation / β reduction
+Required for type preservation / β reduction
 
 ```
 σ₀ : (M : Γ ⊢ B) → Sub (Γ , B) Γ
@@ -277,10 +352,9 @@ data Value  {Γ} : ∀ {A} → Γ ⊢ A → Set where
     → Value (`suc V)
 ```
 
-
 ### Reduction
 
-Due to intrinsic, Church-style encoding, reduction comes with proof of type preservation by construction!
+Due to the intrinsic, Church-style encoding, reduction comes with proof of type preservation by construction!
 
 ```
 infix 2 _⟶_
@@ -325,59 +399,96 @@ data _⟶_ : ∀ {Γ A} → (Γ ⊢ A) → (Γ ⊢ A) → Set where
 
 ## Relation of small-step reduction to the denotational semantics
 
-Soundness of small-step reduction
-
-Semantic substitution
-
-```
-postulate
-  ext : ∀ {A B : Set} {f g : A → B} → (∀ x → f x ≡ g x) → f ≡ g
-
-𝓢⟦_⟧ : Sub Γ Δ → 𝓒⟦ Δ ⟧ → 𝓒⟦ Γ ⟧
-𝓢⟦_⟧ {Γ = ∅} σ δ = tt
-𝓢⟦_⟧ {Γ = Γ , A} σ δ = ⟨ (𝓢⟦ (σ ∘ S_) ⟧ δ) , (𝓔⟦ σ Z ⟧ δ) ⟩
-
-postulate
-  𝓢-ext : ∀ {a : 𝓣⟦ A ⟧} (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧) → ⟨ 𝓢⟦ σ ⟧ δ , a ⟩ ≡ 𝓢⟦ exts σ ⟧ ⟨ δ , a ⟩
-
-subst-id : (γ : 𝓒⟦ Γ ⟧) → γ ≡ 𝓢⟦ `_ ⟧ γ
-subst-id {Γ = ∅} tt = refl
-subst-id {Γ = Γ , A} ⟨ γ , a ⟩ = (cong ⟨_, a ⟩) {!!}
-```
-
-Composing a substitution with a semantic substitution
-
-```
-sound-var : (x : Γ ∋ A) (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧) → 𝓥⟦ x ⟧ (𝓢⟦ σ ⟧ δ) ≡ 𝓔⟦ σ x ⟧ δ
-sound-var Z σ δ = refl
-sound-var (S x) σ δ = sound-var x (σ ∘ S_) δ
-
-sound-sub : (M : Γ ⊢ A) (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧) → 𝓔⟦ M ⟧ (𝓢⟦ σ ⟧ δ) ≡ 𝓔⟦ subst σ M ⟧ δ
-sound-sub (` x) σ δ = sound-var x σ δ
-sound-sub (ƛ M) σ δ = ext λ a → trans (cong 𝓔⟦ M ⟧ (𝓢-ext σ δ)) {!!}
-sound-sub (M · M₁) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ = refl
-sound-sub `zero σ δ = refl
-sound-sub (`suc M) σ δ rewrite sound-sub M σ δ = refl
-sound-sub (recnat M M₁ M₂) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ | sound-sub M₂ σ δ = refl
-```
-
-Soundness of the small-step semantics: making a reduction does not change the semantics
-
+Soundness of small-step reduction:
+Taking a step in the small-step reduction does not change the denotation.
 
 ```
 sound⟶ : ∀ {M N : Γ ⊢ A} → M ⟶ N → (γ : 𝓒⟦ Γ ⟧) → 𝓔⟦ M ⟧ γ ≡ 𝓔⟦ N ⟧ γ
-sound⟶ (ξ-·₁ M⟶N) γ              rewrite sound⟶ M⟶N γ = refl
+```
+
+
+
+
+Renamings acting on semantic substitutions
+
+```
+postulate
+  ext : ∀ {A : Set}{B : A → Set} {f g : (a : A) → B a} → (∀ x → f x ≡ g x) → f ≡ g
+
+
+𝓡⟦_⟧ : Ren Γ Δ → 𝓒⟦ Δ ⟧ → 𝓒⟦ Γ ⟧
+𝓡⟦ ρ ⟧ δ _ x = δ _ (ρ x)
+
+
+extc-ρ : ∀ {v : 𝓣⟦ A ⟧} (δ : 𝓒⟦ Δ ⟧) (ρ : Ren Γ Δ)
+  → extc (𝓡⟦ ρ ⟧ δ) v ≡ 𝓡⟦ extr ρ ⟧ (extc δ v)
+
+extc-ρ δ ρ = ext λ B → ext λ{ Z → refl ; (S x) → refl }
+
+sound-ren : ∀ (M : Γ ⊢ A) (δ : 𝓒⟦ Δ ⟧) (ρ : Ren Γ Δ)
+  → 𝓔⟦ M ⟧ (𝓡⟦ ρ ⟧ δ) ≡ 𝓔⟦ rename ρ M ⟧ δ
+
+sound-ren (` x) δ ρ = refl
+sound-ren (ƛ M) δ ρ = ext (λ v → trans (cong 𝓔⟦ M ⟧ (extc-ρ δ ρ)) (sound-ren M (extc δ v) (extr ρ)))
+sound-ren (M · M₁) δ ρ rewrite sound-ren M δ ρ | sound-ren M₁ δ ρ = refl
+sound-ren `zero δ ρ = refl
+sound-ren (`suc M) δ ρ  rewrite sound-ren M δ ρ = refl
+sound-ren (recnat M M₁ M₂) δ ρ rewrite sound-ren M δ ρ | sound-ren M₁ δ ρ | sound-ren M₂ δ ρ = refl
+```
+
+Syntactic substitutions acting on semantics substitutions
+
+```
+𝓢⟦_⟧ : Sub Γ Δ → 𝓒⟦ Δ ⟧ → 𝓒⟦ Γ ⟧
+𝓢⟦ σ ⟧ δ _ x = 𝓔⟦ σ x ⟧ δ
+
+extc-exts : ∀ {v : 𝓣⟦ A ⟧} → (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧)
+  → extc {A = A} (𝓢⟦ σ ⟧ δ) v ≡ 𝓢⟦ exts σ ⟧ (extc {A = A} δ v)
+extc-exts {v = v} σ δ = ext λ B → ext λ{ Z → refl ; (S x) → sound-ren (σ x) (extc δ v) S_ }
+
+sound-sub : (M : Γ ⊢ A) (σ : Sub Γ Δ) (δ : 𝓒⟦ Δ ⟧)
+  → 𝓔⟦ M ⟧ (𝓢⟦ σ ⟧ δ) ≡ 𝓔⟦ subst σ M ⟧ δ
+
+sound-sub (` x) σ δ = refl
+sound-sub (ƛ M) σ δ = ext (λ v → trans (cong 𝓔⟦ M ⟧ (extc-exts σ δ))
+                                       (sound-sub M (exts σ) (extc δ v)))
+sound-sub (M · M₁) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ = refl
+sound-sub `zero σ δ = refl
+sound-sub (`suc M) σ δ = cong suc (sound-sub M σ δ)
+sound-sub (recnat M M₁ M₂) σ δ rewrite sound-sub M σ δ | sound-sub M₁ σ δ | sound-sub M₂ σ δ = refl
+
+extc-σ₀ : (γ  : 𝓒⟦ Γ ⟧) (W  : Γ ⊢ A) → extc γ (𝓔⟦ W ⟧ γ) ≡ 𝓢⟦ σ₀ W ⟧ γ
+extc-σ₀ γ W = ext λ B → ext λ{ Z → refl ; (S x) → refl}
+
+```
+
+
+
+
+
+
+
+
+```
+-- sound⟶ : ∀ {M N : Γ ⊢ A} → M ⟶ N → (γ : 𝓒⟦ Γ ⟧) → 𝓔⟦ M ⟧ γ ≡ 𝓔⟦ N ⟧ γ
+sound⟶ (ξ-·₁ M⟶N) γ               rewrite sound⟶ M⟶N γ = refl
 sound⟶ (ξ-·₂ x M⟶N) γ            rewrite sound⟶ M⟶N γ = refl
-sound⟶ (β-ƛ {N = N}{W = W} x) γ  rewrite sym (sound-sub N (σ₀ W) γ) | sym (subst-id γ) = refl
+sound⟶ (β-ƛ {N = N}{W = W} v) γ    = trans (cong 𝓔⟦ N ⟧ (extc-σ₀ γ W)) (sound-sub N (σ₀ W) γ)
 sound⟶ (ξ-suc M⟶N) γ             rewrite sound⟶ M⟶N γ = refl
 sound⟶ (ξ-recnat M⟶N) γ          rewrite sound⟶ M⟶N γ = refl
 sound⟶ β-zero γ = refl
 sound⟶ (β-suc x) γ = refl
 ```
 
+
+
+Soundness of the small-step semantics: making a reduction does not change the semantics
+
+
 It is possible to show completeness, in the sense that
-for all `M : ∅ ⊢ ℕ` it holds that `𝓔⟦ M ⟧ tt ≡ n` implies that `M ⟹ V`, `Value V`, and `V ∼ n`.
-But it requires a new technique...
+for all `M : ∅ ⊢ ℕ` it holds that `𝓔⟦ M ⟧ γ∅ ≡ n` implies that `M ⟹ V`, `Value V`, and `V ∼ n`.
+But it requires a new technique:
+Logical relations
 
 (BTW, this result implies that all closed terms of type ℕ terminate!)
 
