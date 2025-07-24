@@ -11,7 +11,7 @@ open import Data.String using (String; _≟_)
 open import Data.Sum
 open import Data.Unit using (⊤; tt)
 open import Data.Empty using (⊥; ⊥-elim)
-open import Function using (_∘_; case_of_) renaming (case_return_of_ to case_ret_of_)
+open import Function using (id; _∘_; case_of_) renaming (case_return_of_ to case_ret_of_)
 open import Relation.Nullary using (Dec; yes; no; ¬_)
 open import Relation.Binary.PropositionalEquality using (_≡_; _≢_; refl; sym; subst; cong)
 ```
@@ -176,68 +176,23 @@ data _—→_ : State × Stmt → State × Stmt → Set where
 
   Seq→₂ : ∀ {σ s₂}
       → (σ , Seq Skp s₂) —→ (σ , s₂)
-
 ```
 
-### Denotational semantics of statements
-
-The denotation of a statement is a state transformer, i.e., a function State → State
+### Program reduction (only terminating computations)
 
 ```
-postulate
-  --- UNSAFE ---
-  fix : ∀ {A : Set} → (A → A) → A
+data _⇓_ : State × Stmt → State → Set where
+  step : ∀ {σ}{σ′}{σ″}{s}{s′} →
+    (σ , s) —→ (σ′ , s′) →
+    (σ′ , s′) ⇓ σ″ →
+    (σ , s) ⇓ σ″
+  done : ∀ {σ} →
+    (σ , Skp) ⇓ σ
 
-𝓢′⟦_⟧ : Stmt → State → State
-𝓢′⟦ Skp ⟧ σ = σ
-𝓢′⟦ Ass x e ⟧ σ = update x (𝓔⟦ e ⟧ σ) σ
-𝓢′⟦ Ite b s₁ s₂ ⟧ σ = if 𝓑⟦ b ⟧ σ then 𝓢′⟦ s₁ ⟧ σ else 𝓢′⟦ s₂ ⟧ σ
-𝓢′⟦ Whl b s ⟧ σ = fix (λ f → λ σ → if (𝓑⟦ b ⟧ σ) then f (𝓢′⟦ s ⟧ σ) else σ) σ
-𝓢′⟦ Seq s₁ s₂ ⟧ = 𝓢′⟦ s₂ ⟧ ∘ 𝓢′⟦ s₁ ⟧
+⇓-trans : ∀ {σ}{σ₁}{σ₂}{s}{s₁} → (σ , s) ⇓ σ₁ → (σ₁ , s₁) ⇓ σ₂ → (σ , Seq s s₁) ⇓ σ₂
+⇓-trans (step r ⇓) ⇓₁ = step (Seq→₁ r) (⇓-trans (⇓) ⇓₁)
+⇓-trans done ⇓₁ = step Seq→₂ ⇓₁
 ```
-
-We cannot complete the case for while, because Agda does not let us use general recursion
-which would be needed to define the semantics of while.
-
-If we are not interested in diverging while programs, then we can get useful results by restricting
-ourselves to arbitrary, finite numbers of unrolling of while statments.
-
-Trick: instead of returning State, we return `ℕ → Maybe State`
-Interpretation: The number (gas) bounds the number of iterations of any nesting of while loops in the program.
-If we run out of gas, then we return `nothing`.
-
-Preparation: bind operator for the Maybe monad
-
-```
-return : ∀ {A : Set} → A → Maybe A
-return a = just a
-
-_⟫=_ : ∀ {A B : Set} → Maybe A → (A → Maybe B) → Maybe B
-(m ⟫= f)
-  with m
-... | nothing = nothing
-... | just a  = f a
-```
-
-
-
-We write the denotational semantics
-
-```
-𝓢⟦_⟧ : Stmt → ℕ → State → Maybe State
-𝓢⟦ s           ⟧ zero    σ = nothing
-𝓢⟦ Skp         ⟧ (suc i) σ = return σ
-𝓢⟦ Ass x e     ⟧ (suc i) σ = return (update x (𝓔⟦ e ⟧ σ) σ)
-𝓢⟦ Ite b s₁ s₂ ⟧ (suc i) σ with 𝓑⟦ b ⟧ σ
-...                           | true  = 𝓢⟦ s₁ ⟧ i σ
-...                           | false = 𝓢⟦ s₂ ⟧ i σ
-𝓢⟦ Whl b s     ⟧ (suc i) σ = 𝓢⟦ Ite b (Seq s (Whl b s)) Skp ⟧ i σ
-𝓢⟦ Seq s₁ s₂   ⟧ (suc i) σ = 𝓢⟦ s₁ ⟧ i σ ⟫= 𝓢⟦ s₂ ⟧ i
-```
-
-Remark:
-* alternative: use if_then_else_ to define Ite
-* define 𝓢⟦ Whl b s ⟧ compositionally
 
 
 ## Verification of while programs
@@ -256,11 +211,19 @@ and s terminates in state σ′, then Q σ′ (σ' satisfies the postcondition)
 
 
 ```
+infixl 4 _∧∧_
+
 Pred : Set → Set₁
 Pred A = A → Set
 
+𝕋 : ∀ {A : Set} → Pred A
+𝕋 a = ⊤
+
 _⇒_ : ∀ {A : Set } → Pred A → Pred A → Set
 P ⇒ Q = ∀ a → P a → Q a
+
+_∧∧_ : ∀ {A : Set} → Pred A → Pred A → Pred A
+P ∧∧ Q = λ a → P a × Q a
 
 Q⇒Q : ∀ {A : Set}{Q : Pred A} → Q ⇒ Q
 Q⇒Q = λ a x → x
@@ -270,6 +233,11 @@ Hoare triples written as `⟪ P ⟫ s ⟪ Q ⟫`
 where P and Q are semantic predicates of type `Pred State`.
 
 ```
+TRUE : Bool → Set
+TRUE b = b ≡ true
+FALSE : Bool → Set
+FALSE b = b ≡ false
+
 data ⟪_⟫_⟪_⟫ : Pred State → Stmt → Pred State → Set₁ where
 
   H-Skp : ∀ {P} →
@@ -279,15 +247,15 @@ data ⟪_⟫_⟪_⟫ : Pred State → Stmt → Pred State → Set₁ where
     ⟪ (λ σ → Q (update x (𝓔⟦ e ⟧ σ) σ)) ⟫ (Ass x e) ⟪ Q ⟫
 
   H-Ite : ∀ {P Q b s₁ s₂} →
-    ⟪ (λ σ → P σ × 𝓑⟦ b ⟧ σ ≡ true ) ⟫ s₁ ⟪ Q ⟫ →
-    ⟪ (λ σ → P σ × 𝓑⟦ b ⟧ σ ≡ false) ⟫ s₂ ⟪ Q ⟫ →
+    ⟪ P ∧∧ TRUE ∘ 𝓑⟦ b ⟧ ⟫ s₁ ⟪ Q ⟫ →
+    ⟪ P ∧∧ FALSE ∘ 𝓑⟦ b ⟧ ⟫ s₂ ⟪ Q ⟫ →
     ----------------------------------------------
     ⟪ P ⟫ (Ite b s₁ s₂) ⟪ Q ⟫
 
   H-Whl : ∀ {P b s} →
-    ⟪ (λ σ → P σ × 𝓑⟦ b ⟧ σ ≡ true) ⟫ s ⟪ P ⟫ →
+    ⟪ P ∧∧ TRUE ∘ 𝓑⟦ b ⟧ ⟫ s ⟪ P ⟫ →
     --------------------------------------------------
-    ⟪ P ⟫ (Whl b s) ⟪ (λ σ → P σ × 𝓑⟦ b ⟧ σ ≡ false) ⟫
+    ⟪ P ⟫ (Whl b s) ⟪ P ∧∧ FALSE ∘ 𝓑⟦ b ⟧ ⟫
 
   H-Seq : ∀ {P Q R s₁ s₂} →
     ⟪ P ⟫ s₁ ⟪ Q ⟫ →
@@ -305,15 +273,35 @@ data ⟪_⟫_⟪_⟫ : Pred State → Stmt → Pred State → Set₁ where
 
 ```
 module Example where
-  hoare1 : ⟪ (λ σ → ⊤) ⟫ example1 ⟪ (λ σ → σ "x" ≡ 42) ⟫
+  _is_ : Ident → ℕ → Pred State
+  (x is n) σ = σ x ≡ n
+  
+  hoare1 : ⟪ 𝕋 ⟫
+           example1
+           ⟪ "x" is 42 ⟫
   hoare1 = H-Wea (λ σ x → refl) H-Ass Q⇒Q
 
-  lemma : ∀ n → (0 <ᵇ n) ≡ false → n ≡ 0
-  lemma zero ¬0<n = refl
+  lemma3 : ∀ n → (0 <ᵇ n) ≡ false → n ≡ 0
+  lemma3 zero ¬0<n = refl
 
-  hoare3 : ⟪ (λ σ → ⊤) ⟫ example3 ⟪ (λ σ → σ "x" ≡ 0) ⟫
-  hoare3 = H-Wea{P₂ = λ σ → (0 ≤ᵇ σ "x") ≡ true} (λ σ _ → refl) (H-Whl (H-Wea{Q₁ = λ σ → ⊤} (λ{ σ (refl , x) → tt}) H-Ass λ σ x → refl)) λ{ σ (refl , ¬0<x) → lemma (σ "x") ¬0<x}
+  hoare3 : ⟪ 𝕋 ⟫
+           example3
+           ⟪ "x" is 0 ⟫
+  hoare3 = H-Wea{P₂ = λ σ → (0 ≤ᵇ σ "x") ≡ true} (λ σ _ → refl)
+             (H-Whl
+               (H-Wea{Q₁ = 𝕋} (λ{ σ (refl , x) → tt})
+                 H-Ass
+                 λ σ x → refl))
+             λ{ σ (refl , ¬0<x) → lemma3 (σ "x") ¬0<x}
 
+  lemma0 : ∀ m n → (m <ᵇ suc n) ≡ true → (m ≤ᵇ n) ≡ true
+  lemma0 zero n m<1+n = refl
+  lemma0 (suc m) n m<1+n = m<1+n
+
+  lemma : ∀ m n → (m ≤ᵇ n) ≡ true × (m <ᵇ n) ≡ false → m ≡ n
+  lemma zero zero x = refl
+  lemma zero (suc n) ()
+  lemma (suc m) (suc n) (m<1+n , ¬m<n) = cong suc (lemma m n (lemma0 m n m<1+n , ¬m<n))
 
   prog : Stmt                                     -- ⟪ x <= 5 ⟫
   prog = Whl ((` "x") ⟨ _<ᵇ_ ⟩ (`# 5) )           --   while x < 5 { x = x + 1 }
@@ -321,14 +309,218 @@ module Example where
 
   hoare : ⟪ (λ σ → (σ "x" ≤ᵇ 5) ≡ true) ⟫
             prog
-          ⟪ (λ σ → σ "x" ≡ 5) ⟫
-  hoare = H-Wea (λ σ x → x)
+          ⟪ "x" is 5 ⟫
+  hoare = H-Wea Q⇒Q
                 (H-Whl {P = λ σ → (σ "x" ≤ᵇ 5) ≡ true}
                   (H-Wea (λ a (x≤5 , x<5) → x<5)
                          H-Ass
-                         λ a x → x))
-                {!!}
+                         Q⇒Q))
+                λ{ σ → lemma (σ "x") 5 }
+```
 
+
+### Denotational semantics of statements
+
+The denotation of a statement is a state transformer, i.e., a function τ : State → State
+
+```
+module unsafe where
+  postulate
+    fix : ∀ {A : Set} → (A → A) → A
+
+  ite : ∀ {A B : Set} → (A → Bool) → (A → B) → (A → B) → (A → B)
+  ite fb ft ff = λ a → if (fb a) then (ft a) else (ff a)
+
+  𝓢′⟦_⟧ : Stmt → State → State
+  𝓢′⟦ Skp ⟧          = id
+  𝓢′⟦ Ass x e ⟧      = λ σ → update x (𝓔⟦ e ⟧ σ) σ
+  𝓢′⟦ Ite b s₁ s₂ ⟧  = ite (𝓑⟦ b ⟧) (𝓢′⟦ s₁ ⟧) (𝓢′⟦ s₂ ⟧)
+  𝓢′⟦ Whl b s ⟧      = fix (λ f → ite (𝓑⟦ b ⟧) (f ∘ 𝓢′⟦ s ⟧) id)
+  𝓢′⟦ Seq s₁ s₂ ⟧    = 𝓢′⟦ s₂ ⟧ ∘ 𝓢′⟦ s₁ ⟧
+```
+
+This attempt requires an unsafe postulate to complete the case for while,
+because Agda does not let us use general recursion (aka `fix`)
+which would be needed to define the semantics of while.
+For this reason, the definition does not compute.
+
+If we are not interested in diverging while programs, then we can get useful results by restricting
+ourselves to arbitrary, finite numbers of unrolling of while statments.
+
+Trick: instead of returning State, we return a function of type `ℕ → Maybe State`
+Interpretation:
+The number (gas) bounds the number of iterations of any nesting of while loops in the program.
+If we run out of gas, then we return `nothing`.
+
+Technically, we move the computation into a monad, which is a combination of `Maybe` and reader monads.
+Preparation: return and bind operator for the Maybe monad
+
+```
+return : ∀ {A : Set} → A → Maybe A
+return a = just a
+
+_⟫=_ : ∀ {A B : Set} → Maybe A → (A → Maybe B) → Maybe B
+(m ⟫= f)
+  with m
+... | nothing = nothing
+... | just a  = f a
+
+-- if the result of a bind is `just`, then its first argument must be a `just`
+maybe-just : ∀ {A B : Set} (m : Maybe A) {f : A → Maybe B} {x : B} → m ⟫= f ≡ just x → ∃[ y ] m ≡ just y
+maybe-just (just y) mf=jx = y , refl
+```
+
+
+
+We write the denotational semantics
+
+Compositional version (after lecture)
+
+```
+module compositional where
+  Comp : Set → Set
+  Comp X = ℕ → State → Maybe X
+
+  -- a custom, indexed fixed point operator for loops
+  mfix : ((State → Maybe State) → ℕ → State → Maybe State) → Comp State
+  mfix f zero σ = nothing
+  mfix f (suc i) σ = f (mfix f i) i σ
+
+  mfix-just : ∀ {f} σ i σ′ → mfix f i σ ≡ just σ′ → ∃[ j ] i ≡ suc j
+  mfix-just σ (suc i) σ′ mfix≡ = i , refl
+
+  𝓢⟦_⟧ : Stmt → ℕ → State → Maybe State
+  𝓢⟦ Skp         ⟧ i σ = return σ
+  𝓢⟦ Ass x e     ⟧ i σ = return (update x (𝓔⟦ e ⟧ σ) σ)
+  𝓢⟦ Ite b s₁ s₂ ⟧ i σ  = if 𝓑⟦ b ⟧ σ then 𝓢⟦ s₁ ⟧ i σ else 𝓢⟦ s₂ ⟧ i σ
+  𝓢⟦ Whl b s     ⟧ i σ = mfix (λ f i σ → if (𝓑⟦ b ⟧ σ) then (𝓢⟦ s ⟧ i σ) ⟫= f else return σ) i σ
+  𝓢⟦ Seq s₁ s₂   ⟧ i σ = 𝓢⟦ s₁ ⟧ i σ ⟫= 𝓢⟦ s₂ ⟧ i
+
+  hoare-soundness : ∀ {P Q s} →
+    ⟪ P ⟫ s ⟪ Q ⟫ →
+    ∀ σ → P σ → ∀ i → ∀ σ′ → 𝓢⟦ s ⟧ i σ ≡ just σ′ → Q σ′
+
+  mfix-soundness : ∀ {b}{s}{P : Pred State} σ i σ′
+    → (pre : P σ)
+    → (mfix≡ : mfix (λ f i σ → if 𝓑⟦ b ⟧ σ then (𝓢⟦ s ⟧ i σ ⟫= f) else just σ) i σ ≡ just σ′)
+    → (loop-inv : ∀ σ → P σ × 𝓑⟦ b ⟧ σ ≡ true → ∀ i σ′ → 𝓢⟦ s ⟧ i σ ≡ just σ′ → P σ′)
+    → P σ′ × 𝓑⟦ b ⟧ σ′ ≡ false
+
+  mfix-soundness {b}{s}{P} σ i σ′ Pσ mfix≡ loop-inv
+    with j , refl ← mfix-just σ i σ′ mfix≡
+    with 𝓑⟦ b ⟧ σ in eq-b
+  mfix-soundness {b} {s} {P} σ .(suc j) σ′ Pσ refl loop-inv | false = Pσ , eq-b
+  ... | true 
+    with σ″ , 𝓢⟦s⟧ ← maybe-just (𝓢⟦ s ⟧ j σ) mfix≡
+    rewrite 𝓢⟦s⟧
+    using Pσ″ ← loop-inv σ (Pσ , eq-b) j σ″ 𝓢⟦s⟧
+    = mfix-soundness {b}{s}{P} σ″ j σ′ Pσ″ mfix≡ loop-inv
+
+  hoare-soundness H-Skp σ P i σ′ refl = P
+  hoare-soundness H-Ass σ P i σ′ refl = P
+  hoare-soundness (H-Ite {b = b} 𝓗 𝓗₁) σ P i σ′ v≡
+    with 𝓑⟦ b ⟧ σ in eq-b
+  ... | true = hoare-soundness 𝓗 σ (P , eq-b) i σ′ v≡
+  ... | false = hoare-soundness 𝓗₁ σ (P , eq-b) i σ′ v≡
+  hoare-soundness (H-Whl {b = b}{s = s} 𝓗) σ P i σ′ v≡
+    with hoare-soundness 𝓗
+  ... | ih = mfix-soundness {b = b}{s = s} σ i σ′ P v≡ ih
+  hoare-soundness (H-Seq {s₁ = s₁}{s₂ = s₂} 𝓗 𝓗₁) σ P i σ′ v≡
+    with σ″ , eq″ ← maybe-just (𝓢⟦ s₁ ⟧ i σ) v≡
+    rewrite eq″
+    with hoare-soundness 𝓗 σ P i σ″ eq″
+  ... | Qσ″
+    = hoare-soundness 𝓗₁ σ″ Qσ″ i σ′ v≡
+  hoare-soundness (H-Wea P₁⇒P₂ 𝓗 Q₁⇒Q₂) σ P i σ′ v≡ =
+    Q₁⇒Q₂ σ′ (hoare-soundness 𝓗 σ (P₁⇒P₂ σ P) i σ′ v≡)
+
+
+  -- auxiliary lemmas for soundness
+
+  -- monotonicity of the denotational semantics
+  -- once we have a result, it remains stable if we give more gas
+  𝓢-step : ∀ {i} σ s σ' →
+    𝓢⟦ s ⟧ i σ ≡ just σ' →
+    𝓢⟦ s ⟧ (suc i) σ ≡ just σ'
+
+  mfix-step : ∀ b s i σ σ′ →
+    mfix (λ f i₁ σ₁ → if 𝓑⟦ b ⟧ σ₁ then (𝓢⟦ s ⟧ i₁ σ₁ ⟫= f) else just σ₁) i σ ≡ just σ′ →
+    mfix (λ f i₁ σ₁ → if 𝓑⟦ b ⟧ σ₁ then (𝓢⟦ s ⟧ i₁ σ₁ ⟫= f) else just σ₁) (suc i) σ ≡ just σ′
+  mfix-step b s (suc i) σ σ′ mfix≡
+    with 𝓑⟦ b ⟧ σ
+  ... | false = mfix≡
+  ... | true
+    with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ i σ) mfix≡
+    rewrite 𝓢-step σ s σ″ eq″
+    rewrite eq″
+    = mfix-step b s i σ″ σ′ mfix≡
+
+  𝓢-step σ Skp σ' eq = eq
+  𝓢-step σ (Ass x e) σ' eq = eq
+  𝓢-step σ (Ite b s s₁) σ' eq
+    with 𝓑⟦ b ⟧ σ
+  ... | true = 𝓢-step σ s σ' eq
+  ... | false = 𝓢-step σ s₁ σ' eq
+  𝓢-step {i} σ (Whl b s) σ' eq = mfix-step b s i σ σ' eq
+  𝓢-step {i} σ (Seq s s₁) σ' eq
+    with σ″ , eq-1 ← maybe-just (𝓢⟦ s ⟧ i σ) eq
+    rewrite 𝓢-step σ s σ″ eq-1
+    rewrite eq-1
+    = 𝓢-step σ″ s₁ σ' eq
+
+  -- soundness of small-step semantics (WIP)
+
+  soundness : ∀ {σ₁ s₁ σ₂ s₂} →
+    (σ₁ , s₁) —→ (σ₂ , s₂) →
+    ∀ i → ∀ σ → 𝓢⟦ s₁ ⟧ i σ₁ ≡ just σ → 𝓢⟦ s₂ ⟧ i σ₂ ≡ just σ
+  soundness Ass→ i σ 𝓢⟦s₁⟧ = 𝓢⟦s₁⟧
+  soundness (Ite→₁ 𝓑⟦b⟧≡true) i σ 𝓢⟦s₁⟧ rewrite 𝓑⟦b⟧≡true = 𝓢⟦s₁⟧
+  soundness (Ite→₂ 𝓑⟦b⟧≡false) i σ 𝓢⟦s₁⟧ rewrite 𝓑⟦b⟧≡false = 𝓢⟦s₁⟧
+  soundness {σ₁ = σ₁} (Whl→ {b = b}{s = s}) i σ 𝓢⟦s₁⟧
+    with j , refl ← mfix-just σ₁ i σ 𝓢⟦s₁⟧
+    with 𝓑⟦ b ⟧ σ₁
+  ... | false = 𝓢⟦s₁⟧
+  ... | true
+    with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ j σ₁) 𝓢⟦s₁⟧
+    rewrite 𝓢-step σ₁ s σ″ eq″
+    rewrite eq″
+    = {!!}
+  soundness {σ₁ = σ₁} (Seq→₁ {s₁ = s₁} r) i σ 𝓢⟦s₁⟧
+    with σ″ , eq ← maybe-just (𝓢⟦ s₁ ⟧ i σ₁) 𝓢⟦s₁⟧
+    rewrite eq
+    rewrite soundness r i σ″ eq
+    = 𝓢⟦s₁⟧  
+  soundness Seq→₂ i σ 𝓢⟦s₁⟧ = 𝓢⟦s₁⟧
+
+  completeness : ∀ i s σ σ′ →
+    𝓢⟦ s ⟧ i σ ≡ just σ′ →
+    (σ , s) ⇓ σ′
+  completeness i Skp σ σ′ refl = done
+  completeness i (Ass x e) σ σ′ refl = step Ass→ done
+  completeness i (Ite b s s₁) σ σ′ eq
+    with 𝓑⟦ b ⟧ σ in eq-b
+  ... | true = step (Ite→₁ eq-b) (completeness i _ σ σ′ eq)
+  ... | false = step (Ite→₂ eq-b) (completeness i _ σ σ′ eq)
+  completeness i (Whl b s) σ σ′ eq = {!!}
+  completeness i (Seq s s₁) σ σ′ eq
+    with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ i σ) eq
+    rewrite eq″
+    = ⇓-trans (completeness i s σ σ″ eq″) (completeness i s₁ σ″ σ′ eq)
+```
+
+Non-compositional version from the lecture :-(
+
+```
+𝓢⟦_⟧ : Stmt → ℕ → State → Maybe State
+𝓢⟦ s           ⟧ zero    σ = nothing
+𝓢⟦ Skp         ⟧ (suc i) σ = return σ
+𝓢⟦ Ass x e     ⟧ (suc i) σ = return (update x (𝓔⟦ e ⟧ σ) σ)
+𝓢⟦ Ite b s₁ s₂ ⟧ (suc i) σ  = if 𝓑⟦ b ⟧ σ then 𝓢⟦ s₁ ⟧ i σ else 𝓢⟦ s₂ ⟧ i σ
+𝓢⟦ Whl b s     ⟧ (suc i) σ = 𝓢⟦ Ite b (Seq s (Whl b s)) Skp ⟧ i σ
+𝓢⟦ Seq s₁ s₂   ⟧ (suc i) σ = 𝓢⟦ s₁ ⟧ i σ ⟫= 𝓢⟦ s₂ ⟧ i
+```
+
+```
 lem' : ∀ i σ σ′ → 𝓢⟦ Skp ⟧ i σ ≡ just σ′ → σ ≡ σ′
 lem' (suc i) σ σ′ refl = refl
 
@@ -361,9 +553,6 @@ hoare-soundness (H-Wea pre H post) σ Pσ (suc i) σ′ eq = post σ′ (hoare-s
 Properties of the denotational semantics
 
 ```
-maybe-just : ∀ {A B : Set} (m : Maybe A) {f : A → Maybe B} {x : B} → m ⟫= f ≡ just x → ∃[ y ] m ≡ just y
-maybe-just (just y) mf=jx = y , refl
-
 𝓢-has-steps : ∀ i s {σ} {σ′} → 𝓢⟦ s ⟧ i σ ≡ just σ′ → ∃[ j ] i ≡ suc j
 𝓢-has-steps (suc i) s ss= = i , refl
 
@@ -431,14 +620,6 @@ soundness {σ₁ = σ₁} (Seq→₂ {s₂ = s₂}) (suc i) σ eq
   with j , refl ← 𝓢-has-steps i Skp eq′
   with eq′
 ... | refl = 𝓢-suc {i} σ₁ s₂ σ eq
-
-data _⇓_ : State × Stmt → State → Set where
-  step : ∀ {σ}{σ′}{σ″}{s}{s′} →
-    (σ , s) —→ (σ′ , s′) →
-    (σ′ , s′) ⇓ σ″ →
-    (σ , s) ⇓ σ″
-  done : ∀ {σ} →
-    (σ , Skp) ⇓ σ
 
 completeness : ∀ {i} {s}{σ}{σ′} →
   𝓢⟦ s ⟧ i σ ≡ just σ′ →
