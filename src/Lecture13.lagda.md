@@ -142,10 +142,10 @@ the semantics of an expression is defined as a function of the semantics of its 
 𝓔⟦ e₁ ⟨ _⊕_ ⟩ e₂ ⟧ σ  = 𝓔⟦ e₁ ⟧ σ ⊕ 𝓔⟦ e₂ ⟧ σ
 
 𝓑⟦_⟧ : BExpr → State → Bool
-𝓑⟦ `not b ⟧ σ    = not (𝓑⟦ b ⟧ σ)
-𝓑⟦ `and b b₁ ⟧ σ = 𝓑⟦ b ⟧ σ ∧ 𝓑⟦ b₁ ⟧ σ
-𝓑⟦ `or b b₁ ⟧ σ  = 𝓑⟦ b ⟧ σ ∨ 𝓑⟦ b₁ ⟧ σ
-𝓑⟦ e₁ ⟨ _relop_ ⟩ e₂ ⟧ σ = 𝓔⟦ e₁ ⟧ σ relop 𝓔⟦ e₂ ⟧ σ
+𝓑⟦ `not b ⟧ σ             = not (𝓑⟦ b ⟧ σ)
+𝓑⟦ `and b b₁ ⟧ σ          = 𝓑⟦ b ⟧ σ ∧ 𝓑⟦ b₁ ⟧ σ
+𝓑⟦ `or b b₁ ⟧ σ           = 𝓑⟦ b ⟧ σ ∨ 𝓑⟦ b₁ ⟧ σ
+𝓑⟦ e₁ ⟨ _relop_ ⟩ e₂ ⟧ σ  = 𝓔⟦ e₁ ⟧ σ relop 𝓔⟦ e₂ ⟧ σ
 ```
 
 ### Small-step reduction relation for statements
@@ -325,8 +325,9 @@ The denotation of a statement is a state transformer, i.e., a function τ : Stat
 
 ```
 module unsafe where
-  postulate
-    fix : ∀ {A : Set} → (A → A) → A
+  {-# NON_TERMINATING #-}
+  fix : ∀ {A : Set} → (A → A) → A
+  fix f = f (fix f)
 
   ite : ∀ {A B : Set} → (A → Bool) → (A → B) → (A → B) → (A → B)
   ite fb ft ff = λ a → if (fb a) then (ft a) else (ff a)
@@ -339,7 +340,7 @@ module unsafe where
   𝓢′⟦ Seq s₁ s₂ ⟧    = 𝓢′⟦ s₂ ⟧ ∘ 𝓢′⟦ s₁ ⟧
 ```
 
-This attempt requires an unsafe postulate to complete the case for while,
+This attempt requires an unsafe definition to complete the case for while,
 because Agda does not let us use general recursion (aka `fix`)
 which would be needed to define the semantics of while.
 For this reason, the definition does not compute.
@@ -372,256 +373,183 @@ maybe-just (just y) mf=jx = y , refl
 
 
 
-We write the denotational semantics
+### Compositional denotational semantics using the gas-indexed Maybe monad
 
-Compositional version (after lecture)
 
 ```
-module compositional where
-  Comp : Set → Set
-  Comp X = ℕ → State → Maybe X
+-- the monad type
+Comp : Set → Set
+Comp X = ℕ → State → Maybe X
 
-  -- a custom, indexed fixed point operator for loops
-  mfix : ((State → Maybe State) → ℕ → State → Maybe State) → Comp State
-  mfix f zero σ = nothing
-  mfix f (suc i) σ = f (mfix f i) i σ
+-- a custom, indexed fixed point operator for loops
+mfix : ((State → Maybe State) → ℕ → State → Maybe State) → Comp State
+mfix f zero σ = nothing
+mfix f (suc i) σ = f (mfix f i) i σ
 
-  mfix-just : ∀ {f} σ i σ′ → mfix f i σ ≡ just σ′ → ∃[ j ] i ≡ suc j
-  mfix-just σ (suc i) σ′ mfix≡ = i , refl
+mfix-just : ∀ {f} σ i σ′ → mfix f i σ ≡ just σ′ → ∃[ j ] i ≡ suc j
+mfix-just σ (suc i) σ′ mfix≡ = i , refl
 
-  𝓢⟦_⟧ : Stmt → ℕ → State → Maybe State
-  𝓢⟦ Skp         ⟧ i σ = return σ
-  𝓢⟦ Ass x e     ⟧ i σ = return (update x (𝓔⟦ e ⟧ σ) σ)
-  𝓢⟦ Ite b s₁ s₂ ⟧ i σ  = if 𝓑⟦ b ⟧ σ then 𝓢⟦ s₁ ⟧ i σ else 𝓢⟦ s₂ ⟧ i σ
-  𝓢⟦ Whl b s     ⟧ i σ = mfix (λ f i σ → if (𝓑⟦ b ⟧ σ) then (𝓢⟦ s ⟧ i σ) ⟫= f else return σ) i σ
-  𝓢⟦ Seq s₁ s₂   ⟧ i σ = 𝓢⟦ s₁ ⟧ i σ ⟫= 𝓢⟦ s₂ ⟧ i
-
-  hoare-soundness : ∀ {P Q s} →
-    ⟪ P ⟫ s ⟪ Q ⟫ →
-    ∀ σ → P σ → ∀ i → ∀ σ′ → 𝓢⟦ s ⟧ i σ ≡ just σ′ → Q σ′
-
-  mfix-soundness : ∀ {b}{s}{P : Pred State} σ i σ′
-    → (pre : P σ)
-    → (mfix≡ : mfix (λ f i σ → if 𝓑⟦ b ⟧ σ then (𝓢⟦ s ⟧ i σ ⟫= f) else just σ) i σ ≡ just σ′)
-    → (loop-inv : ∀ σ → P σ × 𝓑⟦ b ⟧ σ ≡ true → ∀ i σ′ → 𝓢⟦ s ⟧ i σ ≡ just σ′ → P σ′)
-    → P σ′ × 𝓑⟦ b ⟧ σ′ ≡ false
-
-  mfix-soundness {b}{s}{P} σ i σ′ Pσ mfix≡ loop-inv
-    with j , refl ← mfix-just σ i σ′ mfix≡
-    with 𝓑⟦ b ⟧ σ in eq-b
-  mfix-soundness {b} {s} {P} σ .(suc j) σ′ Pσ refl loop-inv | false = Pσ , eq-b
-  ... | true 
-    with σ″ , 𝓢⟦s⟧ ← maybe-just (𝓢⟦ s ⟧ j σ) mfix≡
-    rewrite 𝓢⟦s⟧
-    using Pσ″ ← loop-inv σ (Pσ , eq-b) j σ″ 𝓢⟦s⟧
-    = mfix-soundness {b}{s}{P} σ″ j σ′ Pσ″ mfix≡ loop-inv
-
-  hoare-soundness H-Skp σ P i σ′ refl = P
-  hoare-soundness H-Ass σ P i σ′ refl = P
-  hoare-soundness (H-Ite {b = b} 𝓗 𝓗₁) σ P i σ′ v≡
-    with 𝓑⟦ b ⟧ σ in eq-b
-  ... | true = hoare-soundness 𝓗 σ (P , eq-b) i σ′ v≡
-  ... | false = hoare-soundness 𝓗₁ σ (P , eq-b) i σ′ v≡
-  hoare-soundness (H-Whl {b = b}{s = s} 𝓗) σ P i σ′ v≡
-    with hoare-soundness 𝓗
-  ... | ih = mfix-soundness {b = b}{s = s} σ i σ′ P v≡ ih
-  hoare-soundness (H-Seq {s₁ = s₁}{s₂ = s₂} 𝓗 𝓗₁) σ P i σ′ v≡
-    with σ″ , eq″ ← maybe-just (𝓢⟦ s₁ ⟧ i σ) v≡
-    rewrite eq″
-    with hoare-soundness 𝓗 σ P i σ″ eq″
-  ... | Qσ″
-    = hoare-soundness 𝓗₁ σ″ Qσ″ i σ′ v≡
-  hoare-soundness (H-Wea P₁⇒P₂ 𝓗 Q₁⇒Q₂) σ P i σ′ v≡ =
-    Q₁⇒Q₂ σ′ (hoare-soundness 𝓗 σ (P₁⇒P₂ σ P) i σ′ v≡)
-
-
-  -- auxiliary lemmas for soundness
-
-  -- monotonicity of the denotational semantics
-  -- once we have a result, it remains stable if we give more gas
-  𝓢-step : ∀ {i} σ s σ' →
-    𝓢⟦ s ⟧ i σ ≡ just σ' →
-    𝓢⟦ s ⟧ (suc i) σ ≡ just σ'
-
-  mfix-step : ∀ b s i σ σ′ →
-    mfix (λ f i₁ σ₁ → if 𝓑⟦ b ⟧ σ₁ then (𝓢⟦ s ⟧ i₁ σ₁ ⟫= f) else just σ₁) i σ ≡ just σ′ →
-    mfix (λ f i₁ σ₁ → if 𝓑⟦ b ⟧ σ₁ then (𝓢⟦ s ⟧ i₁ σ₁ ⟫= f) else just σ₁) (suc i) σ ≡ just σ′
-  mfix-step b s (suc i) σ σ′ mfix≡
-    with 𝓑⟦ b ⟧ σ
-  ... | false = mfix≡
-  ... | true
-    with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ i σ) mfix≡
-    rewrite 𝓢-step σ s σ″ eq″
-    rewrite eq″
-    = mfix-step b s i σ″ σ′ mfix≡
-
-  𝓢-step σ Skp σ' eq = eq
-  𝓢-step σ (Ass x e) σ' eq = eq
-  𝓢-step σ (Ite b s s₁) σ' eq
-    with 𝓑⟦ b ⟧ σ
-  ... | true = 𝓢-step σ s σ' eq
-  ... | false = 𝓢-step σ s₁ σ' eq
-  𝓢-step {i} σ (Whl b s) σ' eq = mfix-step b s i σ σ' eq
-  𝓢-step {i} σ (Seq s s₁) σ' eq
-    with σ″ , eq-1 ← maybe-just (𝓢⟦ s ⟧ i σ) eq
-    rewrite 𝓢-step σ s σ″ eq-1
-    rewrite eq-1
-    = 𝓢-step σ″ s₁ σ' eq
-
-  -- soundness of small-step semantics (WIP)
-
-  soundness : ∀ {σ₁ s₁ σ₂ s₂} →
-    (σ₁ , s₁) —→ (σ₂ , s₂) →
-    ∀ i → ∀ σ → 𝓢⟦ s₁ ⟧ i σ₁ ≡ just σ → 𝓢⟦ s₂ ⟧ i σ₂ ≡ just σ
-  soundness Ass→ i σ 𝓢⟦s₁⟧ = 𝓢⟦s₁⟧
-  soundness (Ite→₁ 𝓑⟦b⟧≡true) i σ 𝓢⟦s₁⟧ rewrite 𝓑⟦b⟧≡true = 𝓢⟦s₁⟧
-  soundness (Ite→₂ 𝓑⟦b⟧≡false) i σ 𝓢⟦s₁⟧ rewrite 𝓑⟦b⟧≡false = 𝓢⟦s₁⟧
-  soundness {σ₁ = σ₁} (Whl→ {b = b}{s = s}) i σ 𝓢⟦s₁⟧
-    with j , refl ← mfix-just σ₁ i σ 𝓢⟦s₁⟧
-    with 𝓑⟦ b ⟧ σ₁
-  ... | false = 𝓢⟦s₁⟧
-  ... | true
-    with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ j σ₁) 𝓢⟦s₁⟧
-    rewrite 𝓢-step σ₁ s σ″ eq″
-    rewrite eq″
-    = {!!}
-  soundness {σ₁ = σ₁} (Seq→₁ {s₁ = s₁} r) i σ 𝓢⟦s₁⟧
-    with σ″ , eq ← maybe-just (𝓢⟦ s₁ ⟧ i σ₁) 𝓢⟦s₁⟧
-    rewrite eq
-    rewrite soundness r i σ″ eq
-    = 𝓢⟦s₁⟧  
-  soundness Seq→₂ i σ 𝓢⟦s₁⟧ = 𝓢⟦s₁⟧
-
-  completeness : ∀ i s σ σ′ →
-    𝓢⟦ s ⟧ i σ ≡ just σ′ →
-    (σ , s) ⇓ σ′
-  completeness i Skp σ σ′ refl = done
-  completeness i (Ass x e) σ σ′ refl = step Ass→ done
-  completeness i (Ite b s s₁) σ σ′ eq
-    with 𝓑⟦ b ⟧ σ in eq-b
-  ... | true = step (Ite→₁ eq-b) (completeness i _ σ σ′ eq)
-  ... | false = step (Ite→₂ eq-b) (completeness i _ σ σ′ eq)
-  completeness i (Whl b s) σ σ′ eq = {!!}
-  completeness i (Seq s s₁) σ σ′ eq
-    with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ i σ) eq
-    rewrite eq″
-    = ⇓-trans (completeness i s σ σ″ eq″) (completeness i s₁ σ″ σ′ eq)
-```
-
-Non-compositional version from the lecture :-(
-
-```
 𝓢⟦_⟧ : Stmt → ℕ → State → Maybe State
-𝓢⟦ s           ⟧ zero    σ = nothing
-𝓢⟦ Skp         ⟧ (suc i) σ = return σ
-𝓢⟦ Ass x e     ⟧ (suc i) σ = return (update x (𝓔⟦ e ⟧ σ) σ)
-𝓢⟦ Ite b s₁ s₂ ⟧ (suc i) σ  = if 𝓑⟦ b ⟧ σ then 𝓢⟦ s₁ ⟧ i σ else 𝓢⟦ s₂ ⟧ i σ
-𝓢⟦ Whl b s     ⟧ (suc i) σ = 𝓢⟦ Ite b (Seq s (Whl b s)) Skp ⟧ i σ
-𝓢⟦ Seq s₁ s₂   ⟧ (suc i) σ = 𝓢⟦ s₁ ⟧ i σ ⟫= 𝓢⟦ s₂ ⟧ i
+𝓢⟦ Skp         ⟧ i σ = return σ
+𝓢⟦ Ass x e     ⟧ i σ = return (update x (𝓔⟦ e ⟧ σ) σ)
+𝓢⟦ Ite b s₁ s₂ ⟧ i σ  = if 𝓑⟦ b ⟧ σ then 𝓢⟦ s₁ ⟧ i σ else 𝓢⟦ s₂ ⟧ i σ
+𝓢⟦ Whl b s     ⟧ i σ = mfix (λ f i σ → if (𝓑⟦ b ⟧ σ) then (𝓢⟦ s ⟧ i σ) ⟫= f else return σ) i σ
+𝓢⟦ Seq s₁ s₂   ⟧ i σ = 𝓢⟦ s₁ ⟧ i σ ⟫= 𝓢⟦ s₂ ⟧ i
 ```
 
-```
-lem' : ∀ i σ σ′ → 𝓢⟦ Skp ⟧ i σ ≡ just σ′ → σ ≡ σ′
-lem' (suc i) σ σ′ refl = refl
+We prove soundness of the Hoare calculus with this semantics.
+The statement reflects the classical partial correctness semantics of a Hoare triple:
+For any state σ such that the precondition P holds,
+for all step counts i and post-states σ′ such that the semantics
+yields this post-state, the postcondition Q holds on σ′.
 
+An auxiliary result is needed to establish the soundness of the while rule.
+
+The main result is proved by induction on the derivation of a Hoare triple.
+The auxiliary result is by induction on the number of loop iterations.
+
+```
 hoare-soundness : ∀ {P Q s} →
   ⟪ P ⟫ s ⟪ Q ⟫ →
   ∀ σ → P σ → ∀ i → ∀ σ′ → 𝓢⟦ s ⟧ i σ ≡ just σ′ → Q σ′
-hoare-soundness H-Skp          σ Pσ (suc i) .σ refl = Pσ
-hoare-soundness H-Ass          σ Pσ (suc i) σ′ refl = Pσ
-hoare-soundness (H-Ite {b = b} H₁ H₂)  σ Pσ (suc i) σ′ eq with 𝓑⟦ b ⟧ σ in eq-b
-...                                                          | true  = hoare-soundness H₁ σ (Pσ , eq-b) i σ′ eq
-...                                                          | false = hoare-soundness H₂ σ (Pσ , eq-b) i σ′ eq
-hoare-soundness (H-Whl {b = b} {s = s} H)      σ Pσ (suc (suc i)) σ′ eq
- with 𝓑⟦ b ⟧ σ in eq-b
-... | false rewrite sym (lem' i σ σ′ eq) = Pσ , eq-b
-... | true
- with i
-... | suc i
- with 𝓢⟦ s ⟧ i σ in eq-s
-... | just σ′′
- with hoare-soundness H σ (Pσ , eq-b) i σ′′ eq-s
-... | Pσ′′
- = hoare-soundness (H-Whl H) σ′′ Pσ′′ i σ′ eq
-hoare-soundness (H-Seq {s₁ = s₁} {s₂ = s₂} H₁ H₂)  σ Pσ (suc i) σ′ eq₂
- with 𝓢⟦ s₁ ⟧ i σ in eq₁
-... | just σ′′ = let Pσ′′ = hoare-soundness H₁ σ Pσ i σ′′ eq₁
-                 in hoare-soundness H₂ σ′′ Pσ′′ i σ′ eq₂
-hoare-soundness (H-Wea pre H post) σ Pσ (suc i) σ′ eq = post σ′ (hoare-soundness H σ (pre σ Pσ) (suc i) σ′ eq)
+
+mfix-soundness : ∀ {b}{s}{P : Pred State} σ i σ′
+  → (pre : P σ)
+  → (mfix≡ : 𝓢⟦ Whl b s ⟧ i σ ≡ just σ′)
+  → (loop-inv : ∀ σ → P σ × 𝓑⟦ b ⟧ σ ≡ true → ∀ i σ′ → 𝓢⟦ s ⟧ i σ ≡ just σ′ → P σ′)
+  → P σ′ × 𝓑⟦ b ⟧ σ′ ≡ false
+
+mfix-soundness {b}{s}{P} σ i σ′ Pσ mfix≡ loop-inv
+  with j , refl ← mfix-just σ i σ′ mfix≡
+  with 𝓑⟦ b ⟧ σ in eq-b
+mfix-soundness {b} {s} {P} σ .(suc j) σ′ Pσ refl loop-inv | false = Pσ , eq-b
+... | true 
+  with σ″ , 𝓢⟦s⟧ ← maybe-just (𝓢⟦ s ⟧ j σ) mfix≡
+  rewrite 𝓢⟦s⟧
+  using Pσ″ ← loop-inv σ (Pσ , eq-b) j σ″ 𝓢⟦s⟧
+  = mfix-soundness {b}{s}{P} σ″ j σ′ Pσ″ mfix≡ loop-inv
+
+hoare-soundness H-Skp σ P i σ′ refl = P
+hoare-soundness H-Ass σ P i σ′ refl = P
+hoare-soundness (H-Ite {b = b} 𝓗 𝓗₁) σ P i σ′ v≡
+  with 𝓑⟦ b ⟧ σ in eq-b
+... | true = hoare-soundness 𝓗 σ (P , eq-b) i σ′ v≡
+... | false = hoare-soundness 𝓗₁ σ (P , eq-b) i σ′ v≡
+hoare-soundness (H-Whl {b = b}{s = s} 𝓗) σ P i σ′ v≡
+  with hoare-soundness 𝓗
+... | ih = mfix-soundness {b = b}{s = s} σ i σ′ P v≡ ih
+hoare-soundness (H-Seq {s₁ = s₁}{s₂ = s₂} 𝓗 𝓗₁) σ P i σ′ v≡
+  with σ″ , eq″ ← maybe-just (𝓢⟦ s₁ ⟧ i σ) v≡
+  rewrite eq″
+  with hoare-soundness 𝓗 σ P i σ″ eq″
+... | Qσ″
+  = hoare-soundness 𝓗₁ σ″ Qσ″ i σ′ v≡
+hoare-soundness (H-Wea P₁⇒P₂ 𝓗 Q₁⇒Q₂) σ P i σ′ v≡ =
+  Q₁⇒Q₂ σ′ (hoare-soundness 𝓗 σ (P₁⇒P₂ σ P) i σ′ v≡)
 ```
 
-Properties of the denotational semantics
+### Relating denotational and operational semantics
+
+First, we observe that the denotational semantics is monotonic in its gas parameters.
+That is, once we have a result, it remains stable if we give more gas.
+We need it only for the special case when we give *one* more gas,
+but it is easy to extend the result for arbitrary more gas.
+
+The main result is by induction on the syntax.
+The subsidiary result for while loops is by induction on the gas count.
 
 ```
-𝓢-has-steps : ∀ i s {σ} {σ′} → 𝓢⟦ s ⟧ i σ ≡ just σ′ → ∃[ j ] i ≡ suc j
-𝓢-has-steps (suc i) s ss= = i , refl
-
-𝓢-suc : ∀ {i} σ s σ' →
+𝓢-step : ∀ {i} σ s σ' →
   𝓢⟦ s ⟧ i σ ≡ just σ' →
   𝓢⟦ s ⟧ (suc i) σ ≡ just σ'
-𝓢-suc {i = suc i} σ Skp σ' eq = eq
-𝓢-suc {i = suc i} σ (Ass x e) σ' eq = eq
-𝓢-suc {i = suc i} σ (Ite b s s₁) σ' eq
+
+mfix-step : ∀ b s i σ σ′ →
+  𝓢⟦ Whl b s ⟧ i σ ≡ just σ′ →
+  𝓢⟦ Whl b s ⟧ (suc i) σ ≡ just σ′
+mfix-step b s (suc i) σ σ′ mfix≡
   with 𝓑⟦ b ⟧ σ
-... | true = 𝓢-suc σ s σ' eq
-... | false = 𝓢-suc σ s₁ σ' eq
-𝓢-suc {i = suc i} σ (Whl b s) σ' eq
-  with j , refl ← 𝓢-has-steps i (Ite b (Seq s (Whl b s)) Skp) eq
-  with 𝓑⟦ b ⟧ σ in eq-b
-... | false
-  with  j′ , refl ← 𝓢-has-steps j Skp eq
-  = eq
-
+... | false = mfix≡
 ... | true
-  with j′ , refl ← 𝓢-has-steps j (Seq s (Whl b s)) eq
-  with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ j′ σ) eq
-  rewrite 𝓢-suc {j′} σ s σ″ eq″
-  = {!!}
-𝓢-suc {i = suc i} σ (Seq s s₁) σ' eq
-  with maybe-just (𝓢⟦ s ⟧ i σ) eq
-... | σ″ , eq′
-  rewrite 𝓢-suc{i} σ s σ″ eq′
-  rewrite eq′ = 𝓢-suc {i} σ″ s₁ σ' eq
+  with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ i σ) mfix≡
+  rewrite 𝓢-step σ s σ″ eq″
+  rewrite eq″
+  = mfix-step b s i σ″ σ′ mfix≡
 
-𝓢-≤  : ∀ {i j} σ s σ' →
-  i ≤′ j →
-  𝓢⟦ s ⟧ i σ ≡ just σ' →
-  𝓢⟦ s ⟧ j σ ≡ just σ'
-𝓢-≤ {i = i} {j = j} σ s σ' (_≤′_.≤′-reflexive refl) eq = eq
-𝓢-≤ {i = i} {j = j} σ s σ' (_≤′_.≤′-step i≤j) eq = 𝓢-suc σ s σ' (𝓢-≤ σ s _ i≤j eq)
-
-𝓢-mono : ∀ s i σ →
-  𝓢⟦ s ⟧ i σ ≡ nothing ⊎ 𝓢⟦ s ⟧ i σ ≡ 𝓢⟦ s ⟧ (suc i) σ
-𝓢-mono s i σ with 𝓢⟦ s ⟧ i σ in eq
-... | nothing = inj₁ refl
-... | just σ' = inj₂ (sym (𝓢-suc σ s σ' eq))
+𝓢-step σ Skp σ' eq = eq
+𝓢-step σ (Ass x e) σ' eq = eq
+𝓢-step σ (Ite b s s₁) σ' eq
+  with 𝓑⟦ b ⟧ σ
+... | true = 𝓢-step σ s σ' eq
+... | false = 𝓢-step σ s₁ σ' eq
+𝓢-step {i} σ (Whl b s) σ' eq = mfix-step b s i σ σ' eq
+𝓢-step {i} σ (Seq s s₁) σ' eq
+  with σ″ , eq-1 ← maybe-just (𝓢⟦ s ⟧ i σ) eq
+  rewrite 𝓢-step σ s σ″ eq-1
+  rewrite eq-1
+  = 𝓢-step σ″ s₁ σ' eq
 ```
 
-Soundness of the operational semantics
+With these lemmas, we can establish the soundness of small-step semantics:
+if we take a step in the operational semantics, the denotational
+semantics after the step is the same as before the step.
 
+The proof is by induction on the reduction relation.
 
 ```
 soundness : ∀ {σ₁ s₁ σ₂ s₂} →
   (σ₁ , s₁) —→ (σ₂ , s₂) →
   ∀ i → ∀ σ → 𝓢⟦ s₁ ⟧ i σ₁ ≡ just σ → 𝓢⟦ s₂ ⟧ i σ₂ ≡ just σ
-soundness r zero σ ()
-soundness Ass→ (suc i) σ eq = eq
-soundness (Ite→₁ {s₁ = s₁} b=true) (suc i) σ eq rewrite b=true = 𝓢-suc {i} _ s₁ σ eq 
-soundness (Ite→₂ {s₂ = s₂} b=false) (suc i) σ eq rewrite b=false = 𝓢-suc {i} _ s₂ σ eq
-soundness Whl→ (suc i) = {!!}
-soundness {σ₁ = σ₁} (Seq→₁ {s₁ = s₁} r) (suc i) σ eq
-  with σ′ , eq′ ← maybe-just (𝓢⟦ s₁ ⟧ i σ₁) eq
-  rewrite soundness r i σ′ eq′
-  rewrite eq′
-  = eq
-soundness {σ₁ = σ₁} (Seq→₂ {s₂ = s₂}) (suc i) σ eq
-  with σ′ , eq′ ← maybe-just (𝓢⟦ Skp ⟧ i σ₁) eq
-  rewrite eq′
-  with j , refl ← 𝓢-has-steps i Skp eq′
-  with eq′
-... | refl = 𝓢-suc {i} σ₁ s₂ σ eq
 
-completeness : ∀ {i} {s}{σ}{σ′} →
+soundness Ass→ i σ 𝓢⟦s₁⟧ = 𝓢⟦s₁⟧
+soundness (Ite→₁ 𝓑⟦b⟧≡true) i σ 𝓢⟦s₁⟧ rewrite 𝓑⟦b⟧≡true = 𝓢⟦s₁⟧
+soundness (Ite→₂ 𝓑⟦b⟧≡false) i σ 𝓢⟦s₁⟧ rewrite 𝓑⟦b⟧≡false = 𝓢⟦s₁⟧
+soundness {σ₁ = σ₁} (Whl→ {b = b}{s = s}) (suc i) σ 𝓢⟦s₁⟧
+  = 𝓢-step σ₁ (Ite b (Seq s (Whl b s)) Skp) σ 𝓢⟦s₁⟧
+soundness {σ₁ = σ₁} (Seq→₁ {s₁ = s₁} r) i σ 𝓢⟦s₁⟧
+  with σ″ , eq ← maybe-just (𝓢⟦ s₁ ⟧ i σ₁) 𝓢⟦s₁⟧
+  rewrite eq
+  rewrite soundness r i σ″ eq
+  = 𝓢⟦s₁⟧  
+soundness Seq→₂ i σ 𝓢⟦s₁⟧ = 𝓢⟦s₁⟧
+```
+
+We can also obtain a completeness result:
+If the denotational semantics returns a post-state after some number of steps,
+then there is a reduction sequence that produces the same post-state.
+
+The main result is by induction on the syntax.
+The auxiliary result for while is by induction on the step count.
+
+```
+completeness : ∀ i s σ σ′ →
   𝓢⟦ s ⟧ i σ ≡ just σ′ →
   (σ , s) ⇓ σ′
-completeness {i = i} {s = s} eq = {!!}
+
+fix-complete : ∀ i b s σ σ′ →
+  (eq : 𝓢⟦ Whl b s ⟧ i σ ≡ just σ′) →
+  (σ , Whl b s) ⇓ σ′
+fix-complete (suc i) b s σ σ′ eq
+  with 𝓑⟦ b ⟧ σ in eq-b
+fix-complete (suc i) b s σ σ′ refl | false = step Whl→ (step (Ite→₂ eq-b) done)
+... | true
+  with σ″ , eq-s ← maybe-just (𝓢⟦ s ⟧ i σ) eq
+  rewrite eq-s
+  with completeness i s σ σ″ eq-s
+... | ih
+  with fix-complete i b s σ″ σ′ eq
+... | ih-loop
+  = step Whl→ (step (Ite→₁ eq-b) (⇓-trans ih ih-loop))
+
+completeness i Skp σ σ′ refl = done
+completeness i (Ass x e) σ σ′ refl = step Ass→ done
+completeness i (Ite b s s₁) σ σ′ eq
+  with 𝓑⟦ b ⟧ σ in eq-b
+... | true = step (Ite→₁ eq-b) (completeness i _ σ σ′ eq)
+... | false = step (Ite→₂ eq-b) (completeness i _ σ σ′ eq)
+completeness i (Whl b s) σ σ′ eq = fix-complete i b s σ σ′ eq
+completeness i (Seq s s₁) σ σ′ eq
+  with σ″ , eq″ ← maybe-just (𝓢⟦ s ⟧ i σ) eq
+  rewrite eq″
+  = ⇓-trans (completeness i s σ σ″ eq″) (completeness i s₁ σ″ σ′ eq)
+```
+
